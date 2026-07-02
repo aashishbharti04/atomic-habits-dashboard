@@ -98,6 +98,35 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 }
 [data-theme="light"] .nav-item.active { color: var(--primary); }
 
+.nav-label {
+  font-size: .64rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--text-2); opacity: .75;
+  margin: .85rem .8rem .3rem;
+}
+.nav .nav-label:first-child { margin-top: 0; }
+
+.xp-widget {
+  margin: .8rem 0;
+  padding: .75rem .85rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.xp-top { display: flex; align-items: center; gap: .55rem; margin-bottom: .5rem; }
+.xp-level {
+  width: 30px; height: 30px; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--warn), #f97316);
+  color: #fff; font-size: .8rem; font-weight: 800;
+}
+.xp-title { min-width: 0; }
+.xp-title b { display: block; font-size: .78rem; }
+.xp-title small { color: var(--text-2); font-size: .68rem; }
+.xp-bar { height: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.xp-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--warn), #f97316); }
+
 .sidebar-foot { display: flex; gap: .4rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .icon-btn {
   display: grid; place-items: center;
@@ -462,6 +491,82 @@ a { color: var(--primary-strong, var(--primary)); }
 
 footer { text-align: center; color: var(--text-2); font-size: .76rem; padding: 1.6rem 0 .4rem; }
 
+/* ================= coach ================= */
+.coach-list { display: flex; flex-direction: column; gap: .7rem; }
+.coach-card {
+  display: flex; gap: .9rem; align-items: flex-start;
+  padding: .95rem 1.05rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius-sm);
+}
+.coach-card.good { border-left-color: var(--success); }
+.coach-card.warn { border-left-color: var(--warn); }
+.coach-card.risk { border-left-color: var(--danger); }
+.coach-icon { font-size: 1.25rem; line-height: 1.3; flex-shrink: 0; }
+.coach-card b { display: block; font-size: .9rem; margin-bottom: .2rem; }
+.coach-card p { color: var(--text-2); font-size: .84rem; line-height: 1.6; }
+
+/* ================= goals ================= */
+.goal-form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: .8rem; }
+.goal-form label { display: block; color: var(--text-2); font-size: .8rem; font-weight: 600; }
+.goal-form input { margin-top: .35rem; font-weight: 400; }
+.goal-habit-picker { display: flex; flex-wrap: wrap; gap: .45rem; }
+.goal-habit-pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: .78rem; font-weight: 600;
+  padding: .4rem .85rem;
+  cursor: pointer;
+  transition: all .15s;
+  user-select: none;
+}
+.goal-habit-pill.sel {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-strong, var(--primary));
+}
+[data-theme="light"] .goal-habit-pill.sel { color: var(--primary); }
+.goal-card { position: relative; }
+.goal-card .goal-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.goal-card h3 { font-size: 1rem; margin-bottom: .25rem; }
+.goal-meta { color: var(--text-2); font-size: .78rem; margin-bottom: .7rem; display: flex; gap: .9rem; flex-wrap: wrap; }
+.goal-status { font-weight: 700; }
+.goal-status.ok { color: var(--success); }
+.goal-status.risk { color: var(--warn); }
+.goal-status.done { color: var(--success); }
+.goal-status.over { color: var(--danger); }
+.goal-bar { height: 9px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-bottom: .55rem; }
+.goal-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--success)); transition: width .4s; }
+.goal-habits-row { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+/* ================= journal ================= */
+.journal-form label { display: block; color: var(--text-2); font-size: .82rem; font-weight: 600; margin-bottom: .85rem; }
+.journal-form textarea { margin-top: .35rem; font-weight: 400; }
+.journal-entry {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: .75rem 1rem;
+  margin-bottom: .55rem;
+}
+.journal-entry summary { cursor: pointer; font-weight: 600; font-size: .88rem; display: flex; gap: .7rem; align-items: baseline; }
+.journal-entry summary small { color: var(--text-2); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+.journal-entry dl { margin-top: .7rem; }
+.journal-entry dt { color: var(--text-2); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-top: .55rem; }
+.journal-entry dd { font-size: .87rem; line-height: 1.55; margin: .15rem 0 0; }
+
+/* ================= tracker skip cells ================= */
+.tracker td.day-cell.skip { background: var(--surface-2); }
+.tracker td.day-cell.skip::after { content: "–"; color: var(--text-2); font-weight: 700; }
+.cell-demo.skip { background: var(--surface-2); position: relative; }
+.cell-demo.skip::after { content: "–"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); font-size: .7rem; font-weight: 700; }
+.legend .cell-demo { position: relative; }
+
 /* ================= insights ================= */
 .insight-cards { margin-bottom: 1.1rem; }
 .heatmap-wrap { overflow-x: auto; padding-bottom: .3rem; }
@@ -661,7 +766,8 @@ footer { text-align: center; color: var(--text-2); font-size: .76rem; padding: 1
     border-right: none; border-bottom: 1px solid var(--border);
     gap: .6rem;
   }
-  .logo-text, .nav-item span { display: none; }
+  .logo-text, .nav-item span, .nav-label, .xp-widget { display: none; }
+  .goal-form-grid { grid-template-columns: 1fr; }
   .logo { padding: 0; }
   .nav { flex-direction: row; overflow-x: auto; }
   .nav-item { padding: .55rem .65rem; }

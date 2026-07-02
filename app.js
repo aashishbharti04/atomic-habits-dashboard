@@ -6,10 +6,12 @@ const THEME_KEY = "atomicHabitsTheme";
 
 const defaultState = {
   habits: [],        // {id, name, freq: "daily"|"weekdays"|"weekends"}
-  checks: {},        // {habitId: {"YYYY-MM-DD": true}}
+  checks: {},        // {habitId: {"YYYY-MM-DD": true | "skip"}}
   scorecard: [],     // {id, text, score: "+"|"-"|"="|null}
   stacks: [],        // {id, after, will}
   intentions: [],    // {id, behavior, time, location}
+  goals: [],         // {id, title, deadline, targetReps, habitIds, created}
+  journal: {},       // {"YYYY-MM-DD": {well, improve, win, distraction, priority}}
   contract: { promise: "", penalty: "", partner: "", name: "", date: "" }
 };
 
@@ -66,7 +68,13 @@ function loadState() {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return structuredClone(defaultState);
     const s = Object.assign(structuredClone(defaultState), JSON.parse(raw));
-    s.habits.forEach(h => { if (!h.freq) h.freq = "daily"; });
+    s.habits.forEach(h => {
+      if (!h.freq) h.freq = "daily";
+      if (!h.created) {
+        const keys = Object.keys(s.checks[h.id] || {}).sort();
+        h.created = keys[0] || todayKey();
+      }
+    });
     return s;
   } catch {
     return structuredClone(defaultState);
@@ -88,7 +96,7 @@ function seedRoutine() {
   }
   // starter habits: seed once while the tracker is empty, wire their stacks/intentions
   if (!state.habits.length) {
-    state.habits = STARTER_HABITS.map(h => ({ id: uid(), ...h }));
+    state.habits = STARTER_HABITS.map(h => ({ id: uid(), ...h, created: todayKey() }));
     for (const s of STARTER_STACKS) {
       if (!state.stacks.some(x => x.will.toLowerCase() === s.will.toLowerCase())) {
         state.stacks.push({ id: uid(), ...s });
@@ -127,6 +135,9 @@ const PAGE_META = {
   today:      ["Today", () => new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })],
   discover:   ["Discover", () => "Positive habits worth adopting — start with the two-minute version"],
   insights:   ["Insights", () => "Your consistency, habit strength and achievements at a glance"],
+  coach:      ["Coach", () => "Patterns, risks and recommendations — computed from your own history"],
+  goals:      ["Goals", () => "Link habits to outcomes — the system gets you there"],
+  journal:    ["Journal", () => "Daily reflection — five questions, two minutes"],
   scorecard:  ["Habits Scorecard", () => "Rate every behavior in your day: + good · = neutral · – bad"],
   calendar:   ["Habit Tracker", () => "Don't break the chain"],
   stacks:     ["Habit Stacking", () => "After [current habit], I will [new habit]"],
@@ -173,7 +184,23 @@ function isScheduled(h, d) {
   return true;
 }
 function isChecked(habitId, key) {
-  return !!(state.checks[habitId] && state.checks[habitId][key]);
+  return !!(state.checks[habitId] && state.checks[habitId][key] === true);
+}
+function isSkipped(habitId, key) {
+  return !!(state.checks[habitId] && state.checks[habitId][key] === "skip");
+}
+function checksCount(h) {
+  return Object.values(state.checks[h.id] || {}).filter(v => v === true).length;
+}
+/* a day "counts" for a habit when it's scheduled, not skipped, and the habit existed */
+function countsOn(h, d, key) {
+  const k = key || dateKey(d);
+  if (h.created && k < h.created) return false;
+  return isScheduled(h, d) && !isSkipped(h.id, k);
+}
+function habitAge(h) {
+  if (!h.created) return 999;
+  return Math.round((new Date(todayKey()) - new Date(h.created)) / 86400000);
 }
 const MILESTONES = [
   { days: 7,   emoji: "🥉", label: "One Week",     sub: "7-day streak" },
@@ -183,31 +210,50 @@ const MILESTONES = [
   { days: 100, emoji: "🏆", label: "Centurion",    sub: "100-day streak" }
 ];
 
+function celebrate(habitId, key) {
+  if (key !== todayKey()) return;
+  const h = state.habits.find(x => x.id === habitId);
+  if (!h) return;
+  const s = currentStreak(h);
+  const m = MILESTONES.find(m => m.days === s);
+  if (m) toast(`${m.emoji} ${m.label} — ${s}-day streak on "${h.name}"!`);
+  else toast("+10 XP ⚡");
+}
+/* binary toggle (Today checklist): unchecked/skip → done → unchecked */
 function toggleCheck(habitId, key) {
   if (!state.checks[habitId]) state.checks[habitId] = {};
-  const nowChecked = !state.checks[habitId][key];
+  const nowChecked = state.checks[habitId][key] !== true;
   if (nowChecked) state.checks[habitId][key] = true;
   else delete state.checks[habitId][key];
   save();
-  if (nowChecked && key === todayKey()) {
-    const h = state.habits.find(x => x.id === habitId);
-    if (h) {
-      const s = currentStreak(h);
-      const m = MILESTONES.find(m => m.days === s);
-      if (m) toast(`${m.emoji} ${m.label} — ${s}-day streak on "${h.name}"!`);
-    }
-  }
+  if (nowChecked) celebrate(habitId, key);
   renderToday();
   renderTracker();
   renderInsights();
+  renderGoals();
+  renderCoach();
+}
+/* tracker cells cycle: clear → done → skipped → clear */
+function cycleCheck(habitId, key) {
+  if (!state.checks[habitId]) state.checks[habitId] = {};
+  const cur = state.checks[habitId][key];
+  if (cur === true) state.checks[habitId][key] = "skip";
+  else if (cur === "skip") delete state.checks[habitId][key];
+  else { state.checks[habitId][key] = true; celebrate(habitId, key); }
+  save();
+  renderToday();
+  renderTracker();
+  renderInsights();
+  renderGoals();
+  renderCoach();
 }
 function currentStreak(h) {
   let streak = 0;
   const d = new Date();
   // today doesn't break the streak while still unchecked
-  if (isScheduled(h, d) && !isChecked(h.id, dateKey(d))) d.setDate(d.getDate() - 1);
+  if (countsOn(h, d) && !isChecked(h.id, dateKey(d))) d.setDate(d.getDate() - 1);
   for (let guard = 0; guard < 3700; guard++) {
-    if (!isScheduled(h, d)) { d.setDate(d.getDate() - 1); continue; }
+    if (!countsOn(h, d)) { d.setDate(d.getDate() - 1); continue; }
     if (!isChecked(h.id, dateKey(d))) break;
     streak++;
     d.setDate(d.getDate() - 1);
@@ -222,7 +268,7 @@ function bestStreak(h) {
   const tk = todayKey();
   let best = 0, run = 0;
   for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    if (!isScheduled(h, d)) continue;
+    if (!countsOn(h, d)) continue;
     if (isChecked(h.id, dateKey(d))) { run++; if (run > best) best = run; }
     else if (dateKey(d) !== tk) run = 0;
   }
@@ -248,7 +294,7 @@ const PENCIL_SVG = '<svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L
 function renderStats() {
   const now = new Date();
   const key = todayKey();
-  const scheduledToday = state.habits.filter(h => isScheduled(h, now));
+  const scheduledToday = state.habits.filter(h => countsOn(h, now, key));
   const doneToday = scheduledToday.filter(h => isChecked(h.id, key)).length;
   const best = state.habits.reduce((m, h) => Math.max(m, bestStreak(h)), 0);
 
@@ -257,7 +303,7 @@ function renderStats() {
   for (let i = 0; i < 30; i++) {
     const k = dateKey(d);
     for (const h of state.habits) {
-      if (!isScheduled(h, d)) continue;
+      if (!countsOn(h, d, k)) continue;
       possible++;
       if (isChecked(h.id, k)) done++;
     }
@@ -270,6 +316,8 @@ function renderStats() {
     <div class="stat"><div class="num">${best} <span class="accent">🔥</span></div><div class="lbl">best streak (days)</div></div>
     <div class="stat"><div class="num">${pct30}<span class="accent">%</span></div><div class="lbl">30-day completion</div></div>
     <div class="stat"><div class="num">${state.habits.length}</div><div class="lbl">habits tracked</div></div>`;
+
+  renderXp();
 
   // progress ring
   const pct = scheduledToday.length ? doneToday / scheduledToday.length : 0;
@@ -292,7 +340,7 @@ function renderChart() {
   d.setDate(d.getDate() - 13);
   for (let i = 0; i < 14; i++) {
     const k = dateKey(d);
-    const scheduled = state.habits.filter(h => isScheduled(h, d));
+    const scheduled = state.habits.filter(h => countsOn(h, d, k));
     const done = scheduled.filter(h => isChecked(h.id, k)).length;
     days.push({
       pct: scheduled.length ? done / scheduled.length : 0,
@@ -332,14 +380,16 @@ function renderToday() {
   for (const h of state.habits) {
     const li = document.createElement("li");
     const scheduled = isScheduled(h, t);
+    const skippedToday = isSkipped(h.id, key);
     const done = isChecked(h.id, key);
     const streak = currentStreak(h);
-    if (!scheduled) li.className = "off-today";
+    if (!scheduled || skippedToday) li.className = "off-today";
     li.innerHTML = `
       <button class="habit-check ${done ? "checked" : ""}" aria-label="toggle">${CHECK_SVG}</button>
       <span class="habit-name ${done ? "done" : ""}"></span>
       ${h.freq !== "daily" ? `<span class="chip">${FREQ_LABEL[h.freq]}</span>` : ""}
       ${!scheduled ? '<span class="chip rest">rest day</span>' : ""}
+      ${skippedToday ? '<span class="chip rest">skipped</span>' : ""}
       ${streak > 0 ? `<span class="chip streak">🔥 ${streak} day${streak > 1 ? "s" : ""}</span>` : ""}
       <button class="edit-btn" title="Edit habit">${PENCIL_SVG}</button>
       <button class="del-btn" title="Delete habit">${TRASH_SVG}</button>`;
@@ -370,7 +420,7 @@ function renderToday() {
         if (!name) return;
         h.name = name;
         h.freq = sel.value;
-        save(); renderToday(); renderTracker(); renderInsights(); renderDiscover();
+        save(); renderToday(); renderTracker(); renderInsights(); renderDiscover(); renderGoals(); renderCoach();
         toast("Habit updated");
       };
       li.querySelector(".save-edit").addEventListener("click", commit);
@@ -381,7 +431,7 @@ function renderToday() {
       if (!confirm(`Delete habit "${h.name}" and its history?`)) return;
       state.habits = state.habits.filter(x => x.id !== h.id);
       delete state.checks[h.id];
-      save(); renderToday(); renderStats(); renderChart(); renderTracker(); renderInsights(); renderDiscover();
+      save(); renderToday(); renderStats(); renderChart(); renderTracker(); renderInsights(); renderDiscover(); renderGoals(); renderCoach();
       toast("Habit deleted");
     });
     list.appendChild(li);
@@ -397,11 +447,325 @@ function addHabit() {
   const name = inp.value.trim();
   if (!name) return;
   const freq = document.getElementById("newHabitFreq").value;
-  state.habits.push({ id: uid(), name, freq });
+  state.habits.push({ id: uid(), name, freq, created: todayKey() });
   inp.value = "";
-  save(); renderToday(); renderTracker();
+  save(); renderToday(); renderTracker(); renderGoals(); renderCoach(); renderDiscover();
   toast(`Habit added — ${FREQ_LABEL[freq]}`);
 }
+
+/* ==================== XP & levels ==================== */
+const LEVEL_TITLES = ["Beginner", "Starter", "Builder", "Consistent", "Committed", "Disciplined", "Focused", "Relentless", "Unstoppable", "Atomic"];
+function xpTotal() {
+  let reps = 0;
+  for (const h of state.habits) reps += checksCount(h);
+  const maxBest = state.habits.reduce((m, h) => Math.max(m, bestStreak(h)), 0);
+  const badges = MILESTONES.filter(m => maxBest >= m.days).length;
+  return reps * 10 + badges * 100;
+}
+function levelInfo(xp) {
+  let lvl = 1, need = 100, rem = xp;
+  while (rem >= need && lvl < 99) { rem -= need; lvl++; need = Math.round(need * 1.2); }
+  return { lvl, rem, need };
+}
+function renderXp() {
+  const xp = xpTotal();
+  const { lvl, rem, need } = levelInfo(xp);
+  const title = LEVEL_TITLES[Math.min(Math.floor((lvl - 1) / 2), LEVEL_TITLES.length - 1)];
+  document.getElementById("xpWidget").innerHTML = `
+    <div class="xp-top">
+      <span class="xp-level">${lvl}</span>
+      <span class="xp-title"><b>${title}</b><small>${xp} XP · ${need - rem} to next</small></span>
+    </div>
+    <div class="xp-bar"><span class="xp-fill" style="width:${Math.round((rem / need) * 100)}%"></span></div>`;
+}
+
+/* ==================== goals ==================== */
+let goalHabitSel = new Set();
+
+function renderGoalPicker() {
+  const box = document.getElementById("goalHabits");
+  box.innerHTML = "";
+  if (!state.habits.length) {
+    box.innerHTML = '<span class="hint">Add habits first — goals are powered by habits.</span>';
+    return;
+  }
+  for (const h of state.habits) {
+    const pill = document.createElement("span");
+    pill.className = "goal-habit-pill" + (goalHabitSel.has(h.id) ? " sel" : "");
+    pill.textContent = h.name;
+    pill.addEventListener("click", () => {
+      goalHabitSel.has(h.id) ? goalHabitSel.delete(h.id) : goalHabitSel.add(h.id);
+      renderGoalPicker();
+    });
+    box.appendChild(pill);
+  }
+}
+
+function goalProgress(g) {
+  let reps = 0;
+  for (const hid of g.habitIds) {
+    const m = state.checks[hid] || {};
+    for (const [k, v] of Object.entries(m)) {
+      if (v === true && k >= g.created && k <= g.deadline) reps++;
+    }
+  }
+  return reps;
+}
+
+function renderGoals() {
+  renderGoalPicker();
+  const listEl = document.getElementById("goalList");
+  listEl.innerHTML = "";
+  document.getElementById("goalEmpty").hidden = state.goals.length > 0;
+  const tk = todayKey();
+  for (const g of state.goals) {
+    const reps = goalProgress(g);
+    const pct = Math.min(100, Math.round((reps / g.targetReps) * 100));
+    const total = Math.max(1, Math.round((new Date(g.deadline) - new Date(g.created)) / 86400000) + 1);
+    const gone = Math.min(total, Math.max(0, Math.round((new Date(tk) - new Date(g.created)) / 86400000) + 1));
+    const daysLeft = Math.max(0, Math.round((new Date(g.deadline) - new Date(tk)) / 86400000));
+    const expected = g.targetReps * (gone / total);
+    let status, cls;
+    if (reps >= g.targetReps) { status = "🎉 Achieved"; cls = "done"; }
+    else if (daysLeft === 0 && tk > g.deadline) { status = "Deadline passed"; cls = "over"; }
+    else if (gone <= 2) { status = "Just started"; cls = "ok"; }
+    else if (reps >= expected * 0.9) { status = "On track"; cls = "ok"; }
+    else { status = "At risk — raise the pace"; cls = "risk"; }
+    const names = g.habitIds.map(id => state.habits.find(h => h.id === id)).filter(Boolean).map(h => h.name);
+    const card = document.createElement("div");
+    card.className = "card goal-card";
+    card.innerHTML = `
+      <div class="goal-top">
+        <div>
+          <h3></h3>
+          <div class="goal-meta">
+            <span><b>${reps}</b>/${g.targetReps} reps</span>
+            <span>${daysLeft} days left</span>
+            <span>due ${new Date(g.deadline + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+            <span class="goal-status ${cls}">${status}</span>
+          </div>
+        </div>
+        <button class="del-btn" title="Delete goal">${TRASH_SVG}</button>
+      </div>
+      <div class="goal-bar"><span class="goal-fill" style="width:${pct}%"></span></div>
+      <div class="goal-habits-row">${names.map(() => '<span class="chip"></span>').join("")}</div>`;
+    card.querySelector("h3").textContent = g.title;
+    card.querySelectorAll(".goal-habits-row .chip").forEach((c, i) => c.textContent = names[i]);
+    card.querySelector(".del-btn").addEventListener("click", () => {
+      if (!confirm(`Delete goal "${g.title}"?`)) return;
+      state.goals = state.goals.filter(x => x.id !== g.id);
+      save(); renderGoals();
+      toast("Goal deleted");
+    });
+    listEl.appendChild(card);
+  }
+}
+document.getElementById("addGoalBtn").addEventListener("click", () => {
+  const title = document.getElementById("goalTitle").value.trim();
+  const deadline = document.getElementById("goalDeadline").value;
+  const targetReps = parseInt(document.getElementById("goalTarget").value, 10);
+  if (!title || !deadline || !targetReps || targetReps < 1) { toast("Fill goal, deadline and target reps"); return; }
+  if (!goalHabitSel.size) { toast("Link at least one habit"); return; }
+  if (deadline < todayKey()) { toast("Deadline must be in the future"); return; }
+  state.goals.push({ id: uid(), title, deadline, targetReps, habitIds: [...goalHabitSel], created: todayKey() });
+  document.getElementById("goalTitle").value = "";
+  document.getElementById("goalDeadline").value = "";
+  document.getElementById("goalTarget").value = "";
+  goalHabitSel = new Set();
+  save(); renderGoals();
+  toast("Goal created 🎯");
+});
+
+/* ==================== journal ==================== */
+function loadJournalEntry() {
+  const k = document.getElementById("jDate").value || todayKey();
+  const e = state.journal[k] || {};
+  document.getElementById("jWell").value = e.well || "";
+  document.getElementById("jImprove").value = e.improve || "";
+  document.getElementById("jWin").value = e.win || "";
+  document.getElementById("jDistraction").value = e.distraction || "";
+  document.getElementById("jPriority").value = e.priority || "";
+}
+function renderJournalHistory() {
+  const box = document.getElementById("journalHistory");
+  const keys = Object.keys(state.journal).sort().reverse().slice(0, 30);
+  document.getElementById("journalEmpty").hidden = keys.length > 0;
+  box.innerHTML = "";
+  const FIELDS = [["well", "What went well"], ["improve", "Could be improved"], ["win", "Biggest win"], ["distraction", "Biggest distraction"], ["priority", "Tomorrow's priority"]];
+  for (const k of keys) {
+    const e = state.journal[k];
+    const teaser = e.win || e.well || e.priority || "";
+    const det = document.createElement("details");
+    det.className = "journal-entry";
+    det.innerHTML = `<summary><span>${new Date(k + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span><small></small></summary><dl></dl>`;
+    det.querySelector("small").textContent = teaser;
+    const dl = det.querySelector("dl");
+    for (const [f, label] of FIELDS) {
+      if (!e[f]) continue;
+      const dt = document.createElement("dt"); dt.textContent = label;
+      const dd = document.createElement("dd"); dd.textContent = e[f];
+      dl.append(dt, dd);
+    }
+    box.appendChild(det);
+  }
+}
+document.getElementById("jDate").addEventListener("change", loadJournalEntry);
+document.getElementById("saveJournalBtn").addEventListener("click", () => {
+  const k = document.getElementById("jDate").value || todayKey();
+  const entry = {
+    well: document.getElementById("jWell").value.trim(),
+    improve: document.getElementById("jImprove").value.trim(),
+    win: document.getElementById("jWin").value.trim(),
+    distraction: document.getElementById("jDistraction").value.trim(),
+    priority: document.getElementById("jPriority").value.trim()
+  };
+  if (Object.values(entry).every(v => !v)) { toast("Write at least one answer"); return; }
+  state.journal[k] = entry;
+  save(); renderJournalHistory(); renderCoach();
+  toast("Reflection saved 📔");
+});
+
+/* ==================== coach ==================== */
+function rateOver(h, from, to) {
+  // completion rate for habit h over day-offsets [from, to) back from today
+  let poss = 0, done = 0;
+  const d = new Date();
+  d.setDate(d.getDate() - from);
+  for (let i = from; i < to; i++) {
+    if (countsOn(h, d)) { poss++; if (isChecked(h.id, dateKey(d))) done++; }
+    d.setDate(d.getDate() - 1);
+  }
+  return { poss, done, rate: poss ? done / poss : null };
+}
+function renderCoach() {
+  const box = document.getElementById("coachList");
+  const cards = [];
+  const add = (tone, icon, title, body) => cards.push({ tone, icon, title, body });
+
+  if (!state.habits.length) {
+    add("info", "👋", "Welcome, let's begin", "Add your first habit on the Today page — start with something that takes two minutes or less. I'll start generating insights from your data after a few days of tracking.");
+  } else {
+    /* weekly summary + burnout */
+    let p7 = 0, d7 = 0, p14 = 0, d14 = 0;
+    const dd = new Date();
+    for (let i = 0; i < 14; i++) {
+      const k = dateKey(dd);
+      for (const h of state.habits) {
+        if (!countsOn(h, dd, k)) continue;
+        if (i < 7) { p7++; if (isChecked(h.id, k)) d7++; }
+        else { p14++; if (isChecked(h.id, k)) d14++; }
+      }
+      dd.setDate(dd.getDate() - 1);
+    }
+    const r7 = p7 ? d7 / p7 : 0, rPrev = p14 ? d14 / p14 : null;
+    if (p7 >= 3) {
+      let msg = `You completed ${d7} of ${p7} scheduled habits this week (${Math.round(r7 * 100)}%).`;
+      if (rPrev !== null && p14 >= 3) {
+        const diff = Math.round((r7 - rPrev) * 100);
+        msg += diff >= 0 ? ` That's ${diff}% better than last week — momentum is real.` : ` That's ${-diff}% below last week.`;
+      }
+      add(r7 >= 0.7 ? "good" : "info", "📈", "This week", msg);
+      if (rPrev !== null && rPrev >= 0.5 && r7 < rPrev - 0.25 && p14 >= 5) {
+        add("risk", "🪫", "Possible burnout signal", `Your completion dropped from ${Math.round(rPrev * 100)}% to ${Math.round(r7 * 100)}% week-over-week. Don't quit — shrink. Scale every habit down to its two-minute version this week and rebuild the rhythm before raising the bar.`);
+      }
+    }
+
+    /* streaks at risk today */
+    const now = new Date(), tk = todayKey();
+    for (const h of state.habits) {
+      if (!countsOn(h, now, tk) || isChecked(h.id, tk)) continue;
+      const s = currentStreak(h);
+      if (s >= 3) add("warn", "🔥", "Streak at risk", `"${h.name}" has a ${s}-day streak and isn't done yet today. The two-minute version still counts — never miss twice.`);
+    }
+
+    /* weekday vs weekend pattern (daily habits, last 8 weeks) */
+    for (const h of state.habits) {
+      if (h.freq !== "daily") continue;
+      let wePoss = 0, weDone = 0, wdPoss = 0, wdDone = 0;
+      const d = new Date();
+      for (let i = 0; i < 56; i++) {
+        const k = dateKey(d);
+        if (countsOn(h, d, k)) {
+          const wknd = d.getDay() === 0 || d.getDay() === 6;
+          if (wknd) { wePoss++; if (isChecked(h.id, k)) weDone++; }
+          else { wdPoss++; if (isChecked(h.id, k)) wdDone++; }
+        }
+        d.setDate(d.getDate() - 1);
+      }
+      if (wePoss >= 4 && wdPoss >= 10) {
+        const weR = weDone / wePoss, wdR = wdDone / wdPoss;
+        if (weR - wdR >= 0.2) add("info", "📊", "Pattern detected", `Your "${h.name}" completion rate is ${Math.round((weR - wdR) * 100)}% higher on weekends. Consider a bigger weekend version of this habit — and a smaller, easier weekday version so busy days don't break the chain.`);
+        else if (wdR - weR >= 0.2) add("info", "📊", "Pattern detected", `"${h.name}" drops ${Math.round((wdR - weR) * 100)}% on weekends. Weekends lack your weekday cues — pick a specific weekend time and place for it (implementation intention).`);
+      }
+    }
+
+    /* high-risk day */
+    const byDay = Array.from({ length: 7 }, () => ({ poss: 0, done: 0 }));
+    const hd = new Date();
+    for (let i = 0; i < 84; i++) {
+      const k = dateKey(hd);
+      for (const h of state.habits) {
+        if (!countsOn(h, hd, k)) continue;
+        byDay[hd.getDay()].poss++;
+        if (isChecked(h.id, k)) byDay[hd.getDay()].done++;
+      }
+      hd.setDate(hd.getDate() - 1);
+    }
+    let worst = -1, worstRate = 1;
+    byDay.forEach((v, i) => {
+      if (v.poss >= 8) {
+        const r = v.done / v.poss;
+        if (r < worstRate) { worstRate = r; worst = i; }
+      }
+    });
+    if (worst >= 0 && worstRate < 0.6) {
+      const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][worst];
+      add("warn", "⚠️", "High-risk day", `${dayName} is your weakest day — only ${Math.round(worstRate * 100)}% completion over the last 12 weeks. Prepare the night before: lay out your cues, and commit to two-minute versions on ${dayName}s.`);
+    }
+
+    /* strength leader & laggard — only judge habits at least a week old */
+    const mature = state.habits.filter(h => habitAge(h) >= 7);
+    if (mature.length >= 2) {
+      const ranked = mature.map(h => ({ h, s: habitStrength(h) })).sort((a, b) => b.s - a.s);
+      const top = ranked[0], low = ranked[ranked.length - 1];
+      if (top.s >= 70) add("good", "🏆", "Your keystone habit", `"${top.h.name}" is your strongest habit (${top.s}% strength). Use it as an anchor: stack your next new habit right after it.`);
+      if (low.s < 40 && low.h.id !== top.h.id) add("info", "🔧", "Needs redesign, not willpower", `"${low.h.name}" is struggling (${low.s}% strength). Don't blame motivation — make it easier: shrink it to two minutes, move it to a better time, or tie it to a stronger cue.`);
+    }
+
+    /* journal nudge */
+    if (!state.journal[todayKey()]) {
+      add("info", "📔", "Tonight's reflection", "You haven't written today's reflection yet. Five questions, two minutes — right after you stop using your phone at 9 PM.");
+    }
+  }
+
+  box.innerHTML = "";
+  for (const c of cards) {
+    const el = document.createElement("div");
+    el.className = `coach-card ${c.tone}`;
+    el.innerHTML = `<span class="coach-icon">${c.icon}</span><div><b></b><p></p></div>`;
+    el.querySelector("b").textContent = c.title;
+    el.querySelector("p").textContent = c.body;
+    box.appendChild(el);
+  }
+}
+
+/* ==================== CSV export ==================== */
+document.getElementById("csvBtn").addEventListener("click", () => {
+  let csv = "habit,frequency,date,status\n";
+  for (const h of state.habits) {
+    const m = state.checks[h.id] || {};
+    for (const k of Object.keys(m).sort()) {
+      csv += `"${h.name.replace(/"/g, '""')}",${h.freq},${k},${m[k] === true ? "done" : "skipped"}\n`;
+    }
+  }
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "atomic-habits-history.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("CSV exported");
+});
 
 /* ==================== insights ==================== */
 function habitStrength(h) {
@@ -410,7 +774,7 @@ function habitStrength(h) {
   let num = 0, den = 0;
   const d = new Date();
   for (let i = 0; i < 60; i++) {
-    if (isScheduled(h, d)) {
+    if (countsOn(h, d)) {
       const w = Math.pow(0.94, i);
       den += w;
       if (isChecked(h.id, dateKey(d))) num += w;
@@ -432,7 +796,7 @@ function renderInsights() {
   const d = new Date(start);
   while (d <= now) {
     const k = dateKey(d);
-    const scheduled = state.habits.filter(h => isScheduled(h, d));
+    const scheduled = state.habits.filter(h => countsOn(h, d, k));
     let cls;
     if (!scheduled.length) cls = "hm-none";
     else {
@@ -448,13 +812,13 @@ function renderInsights() {
 
   /* --- summary cards --- */
   let totalReps = 0;
-  for (const h of state.habits) totalReps += Object.keys(state.checks[h.id] || {}).length;
+  for (const h of state.habits) totalReps += checksCount(h);
   let perfectDays = 0;
   const byWeekday = Array.from({ length: 7 }, () => ({ done: 0, poss: 0 }));
   const wd = new Date();
   for (let i = 0; i < 84; i++) {
     const k = dateKey(wd);
-    const scheduled = state.habits.filter(h => isScheduled(h, wd));
+    const scheduled = state.habits.filter(h => countsOn(h, wd, k));
     if (scheduled.length) {
       const done = scheduled.filter(h => isChecked(h.id, k)).length;
       if (i < 30 && done === scheduled.length) perfectDays++;
@@ -490,7 +854,7 @@ function renderInsights() {
       let poss = 0, done = 0;
       const sd = new Date();
       for (let i = 0; i < 30; i++) {
-        if (isScheduled(h, sd)) { poss++; if (isChecked(h.id, dateKey(sd))) done++; }
+        if (countsOn(h, sd)) { poss++; if (isChecked(h.id, dateKey(sd))) done++; }
         sd.setDate(sd.getDate() - 1);
       }
       rows += `<tr>
@@ -499,7 +863,7 @@ function renderInsights() {
         <td>🔥 ${currentStreak(h)}d</td>
         <td>${bestStreak(h)}d</td>
         <td>${poss ? Math.round((done / poss) * 100) : 0}%</td>
-        <td>${Object.keys(state.checks[h.id] || {}).length}✓</td>
+        <td>${checksCount(h)}✓</td>
       </tr>`;
     }
     table.innerHTML = rows;
@@ -593,9 +957,9 @@ function renderDiscover() {
       </div>`;
     if (!added) {
       card.querySelector(".sug-add").addEventListener("click", () => {
-        state.habits.push({ id: uid(), name: s.name, freq: s.freq });
+        state.habits.push({ id: uid(), name: s.name, freq: s.freq, created: todayKey() });
         save();
-        renderToday(); renderTracker(); renderDiscover();
+        renderToday(); renderTracker(); renderDiscover(); renderGoals(); renderCoach();
         toast(`"${s.name}" added — ${FREQ_LABEL[s.freq]}`);
       });
     }
@@ -680,10 +1044,12 @@ function renderTracker() {
       const cellDate = new Date(year, month, d);
       const key = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
       const done = isChecked(h.id, key);
+      const skipped = isSkipped(h.id, key);
       const off = !isScheduled(h, cellDate);
       const future = cellDate > now && !(isThisMonth && d === todayDate);
       const cls = ["day-cell",
         done ? "done" : "",
+        skipped ? "skip" : "",
         off ? "off" : "",
         (isThisMonth && d === todayDate) ? "today-cell" : "",
         future ? "future" : ""].filter(Boolean).join(" ");
@@ -695,8 +1061,8 @@ function renderTracker() {
   table.innerHTML = head + rows;
 
   table.querySelectorAll("td.day-cell[data-h]").forEach(td => {
-    td.addEventListener("click", () => toggleCheck(td.dataset.h, td.dataset.k));
-    td.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCheck(td.dataset.h, td.dataset.k); } });
+    td.addEventListener("click", () => cycleCheck(td.dataset.h, td.dataset.k));
+    td.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycleCheck(td.dataset.h, td.dataset.k); } });
   });
 }
 document.getElementById("prevMonth").addEventListener("click", () => { calMonth--; renderTracker(); });
@@ -821,10 +1187,15 @@ function renderAll() {
   renderScorecard();
   renderTracker();
   renderInsights();
+  renderCoach();
+  renderGoals();
+  renderJournalHistory();
   renderStacks();
   renderIntentions();
   renderContract();
 }
+document.getElementById("jDate").value = todayKey();
+loadJournalEntry();
 renderAll();
 
 /* ==================== PWA ==================== */

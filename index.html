@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atomic Habits Dashboard</title>
+<meta name="description" content="A personal dashboard based on James Clear's Atomic Habits — habit scorecard, tracker calendar, habit stacks, implementation intentions and habit contract.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛️</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">⚛️</span>
+    <div>
+      <h1>Atomic Habits</h1>
+      <p class="tagline">Tiny changes, remarkable results</p>
+    </div>
+  </div>
+  <div class="quote-chip" id="quoteChip">"You do not rise to the level of your goals. You fall to the level of your systems."</div>
+  <div class="topbar-actions">
+    <button class="btn ghost" id="exportBtn" title="Download your data as JSON">⬇ Export</button>
+    <button class="btn ghost" id="importBtn" title="Restore data from JSON">⬆ Import</button>
+    <input type="file" id="importFile" accept=".json" hidden>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="today">🏠 Today</button>
+  <button class="tab" data-tab="scorecard">📋 Scorecard</button>
+  <button class="tab" data-tab="calendar">📅 Calendar</button>
+  <button class="tab" data-tab="stacks">🔗 Stacks</button>
+  <button class="tab" data-tab="intentions">🎯 Intentions</button>
+  <button class="tab" data-tab="contract">🤝 Contract</button>
+  <button class="tab" data-tab="guide">📖 Guide</button>
+</nav>
+
+<main>
+
+<!-- ==================== TODAY ==================== -->
+<section class="panel active" id="panel-today">
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 id="todayTitle">Today's Habits</h2>
+      <span class="hint">Check off each habit you complete. Never miss twice.</span>
+    </div>
+    <div class="add-row">
+      <input type="text" id="newHabitInput" placeholder="Add a habit… e.g. Read 10 pages" maxlength="80">
+      <button class="btn primary" id="addHabitBtn">+ Add Habit</button>
+    </div>
+    <ul class="habit-list" id="todayList"></ul>
+    <p class="empty-msg" id="todayEmpty" hidden>No habits yet. Add your first habit above — start with something that takes <b>two minutes or less</b>.</p>
+  </div>
+
+  <div class="card soft">
+    <h3>💡 Rule of the day</h3>
+    <p id="dailyTip"></p>
+  </div>
+</section>
+
+<!-- ==================== SCORECARD ==================== -->
+<section class="panel" id="panel-scorecard">
+  <div class="card">
+    <div class="card-head">
+      <h2>The Habits Scorecard</h2>
+      <span class="hint">Awareness comes before change.</span>
+    </div>
+    <p class="explain">List the things you do every day in order — from waking up to going to bed. Then score each one:
+      <b class="pos">+</b> if it's a good habit, <b class="neg">–</b> if it's a bad habit, <b class="neu">=</b> if it's neutral.
+      Judge by whether the behavior benefits <i>the person you want to become</i>. Just observe — no need to change anything yet.</p>
+    <div class="add-row">
+      <input type="text" id="newScoreInput" placeholder="e.g. Wake up · Check phone · Drink coffee…" maxlength="80">
+      <button class="btn primary" id="addScoreBtn">+ Add Behavior</button>
+    </div>
+    <ul class="score-list" id="scoreList"></ul>
+    <p class="empty-msg" id="scoreEmpty" hidden>Nothing listed yet. Walk through your day in your head and write down each behavior in order.</p>
+    <div class="score-summary" id="scoreSummary"></div>
+  </div>
+</section>
+
+<!-- ==================== CALENDAR ==================== -->
+<section class="panel" id="panel-calendar">
+  <div class="card">
+    <div class="card-head">
+      <h2>Habit Tracker</h2>
+      <div class="month-nav">
+        <button class="btn ghost" id="prevMonth">‹</button>
+        <span id="monthLabel"></span>
+        <button class="btn ghost" id="nextMonth">›</button>
+      </div>
+    </div>
+    <p class="explain">"Don't break the chain." Click a cell to mark a habit done on that day. The most effective form of motivation is <b>seeing your own progress</b>.</p>
+    <div class="tracker-wrap">
+      <table class="tracker" id="trackerTable"></table>
+    </div>
+    <p class="empty-msg" id="trackerEmpty" hidden>Add habits on the <b>Today</b> tab to start tracking them here.</p>
+    <div class="legend">
+      <span><span class="cell-demo done"></span> done</span>
+      <span><span class="cell-demo"></span> not done</span>
+      <span><span class="cell-demo today-demo"></span> today</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== STACKS ==================== -->
+<section class="panel" id="panel-stacks">
+  <div class="card">
+    <div class="card-head">
+      <h2>Habit Stacking</h2>
+      <span class="hint">1st Law · Make It Obvious</span>
+    </div>
+    <p class="explain">Pair a new habit with a current one. The formula:
+      <b>"After [CURRENT HABIT], I will [NEW HABIT]."</b>
+      Your current habits are already built into your brain — use them as cues.</p>
+    <div class="builder">
+      <span class="builder-word">After I</span>
+      <input type="text" id="stackAfter" placeholder="pour my morning coffee" maxlength="80">
+      <span class="builder-word">, I will</span>
+      <input type="text" id="stackWill" placeholder="meditate for one minute" maxlength="80">
+      <button class="btn primary" id="addStackBtn">+ Stack It</button>
+    </div>
+    <ul class="formula-list" id="stackList"></ul>
+    <p class="empty-msg" id="stackEmpty" hidden>No stacks yet. Anchor a tiny new habit to something you already do every day.</p>
+  </div>
+</section>
+
+<!-- ==================== INTENTIONS ==================== -->
+<section class="panel" id="panel-intentions">
+  <div class="card">
+    <div class="card-head">
+      <h2>Implementation Intentions</h2>
+      <span class="hint">1st Law · Make It Obvious</span>
+    </div>
+    <p class="explain">People who make a specific plan for <i>when</i> and <i>where</i> they will perform a habit are far more likely to follow through. The formula:
+      <b>"I will [BEHAVIOR] at [TIME] in [LOCATION]."</b></p>
+    <div class="builder">
+      <span class="builder-word">I will</span>
+      <input type="text" id="intBehavior" placeholder="exercise" maxlength="80">
+      <span class="builder-word">at</span>
+      <input type="text" id="intTime" placeholder="7:00 AM" maxlength="40">
+      <span class="builder-word">in</span>
+      <input type="text" id="intLocation" placeholder="my local gym" maxlength="60">
+      <button class="btn primary" id="addIntBtn">+ Commit</button>
+    </div>
+    <ul class="formula-list" id="intList"></ul>
+    <p class="empty-msg" id="intEmpty" hidden>No intentions yet. Vague plans fail — give every habit a time and a place.</p>
+  </div>
+</section>
+
+<!-- ==================== CONTRACT ==================== -->
+<section class="panel" id="panel-contract">
+  <div class="card">
+    <div class="card-head">
+      <h2>Habit Contract</h2>
+      <span class="hint">4th Law inversion · Make It Unsatisfying</span>
+    </div>
+    <p class="explain">Make the costs of breaking your habit public and painful. Write a contract, set a consequence, and have an accountability partner sign it with you.</p>
+    <div class="contract-form">
+      <label>My commitment<textarea id="cPromise" rows="2" placeholder="I will track my habits every evening at 9 PM for the next 30 days."></textarea></label>
+      <label>If I fail, the consequence is<textarea id="cPenalty" rows="2" placeholder="I pay ₹500 to my accountability partner / do 50 push-ups."></textarea></label>
+      <div class="contract-grid">
+        <label>Accountability partner<input type="text" id="cPartner" placeholder="Partner's name"></label>
+        <label>Signed by<input type="text" id="cName" placeholder="Your name"></label>
+        <label>Date<input type="date" id="cDate"></label>
+      </div>
+      <div class="contract-actions">
+        <button class="btn primary" id="saveContractBtn">💾 Save Contract</button>
+        <button class="btn ghost" id="printContractBtn">🖨 Print</button>
+      </div>
+      <p class="saved-note" id="contractSaved" hidden>✓ Contract saved</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== GUIDE ==================== -->
+<section class="panel" id="panel-guide">
+  <div class="card">
+    <h2>The Habit Loop</h2>
+    <p class="explain">Every habit runs through the same four-step loop. Understand the loop and you can redesign any habit.</p>
+    <div class="loop-diagram">
+      <div class="loop-step"><span class="loop-num">1</span><b>Cue</b><p>The trigger that initiates the behavior. It predicts a reward.</p></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><span class="loop-num">2</span><b>Craving</b><p>The motivational force. You crave the change in state, not the habit itself.</p></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><span class="loop-num">3</span><b>Response</b><p>The actual habit you perform — a thought or an action.</p></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-step"><span class="loop-num">4</span><b>Reward</b><p>The end goal. Rewards satisfy the craving and teach the brain to repeat the loop.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Habits Cheat Sheet — The Four Laws</h2>
+    <div class="laws-grid">
+      <div class="law">
+        <h3>1st Law · Make It Obvious</h3>
+        <ul>
+          <li>Fill out the <b>Habits Scorecard</b> to become aware of your habits.</li>
+          <li>Use <b>implementation intentions</b>: "I will [behavior] at [time] in [location]."</li>
+          <li>Use <b>habit stacking</b>: "After [current habit], I will [new habit]."</li>
+          <li><b>Design your environment</b> — make the cues of good habits visible.</li>
+        </ul>
+        <p class="inversion"><b>Inversion — Make It Invisible:</b> reduce exposure; remove the cues of bad habits from your environment.</p>
+      </div>
+      <div class="law">
+        <h3>2nd Law · Make It Attractive</h3>
+        <ul>
+          <li>Use <b>temptation bundling</b> — pair an action you want with one you need.</li>
+          <li><b>Join a culture</b> where your desired behavior is the normal behavior.</li>
+          <li>Create a <b>motivation ritual</b> — do something you enjoy right before a difficult habit.</li>
+        </ul>
+        <p class="inversion"><b>Inversion — Make It Unattractive:</b> reframe your mindset; highlight the benefits of avoiding the bad habit.</p>
+      </div>
+      <div class="law">
+        <h3>3rd Law · Make It Easy</h3>
+        <ul>
+          <li><b>Reduce friction</b> — decrease the steps between you and good habits.</li>
+          <li><b>Prime the environment</b> — prepare it so future actions are easy.</li>
+          <li>Master the <b>decisive moment</b> — optimize the small choices with big impact.</li>
+          <li>Use the <b>Two-Minute Rule</b> — downscale habits until they take two minutes.</li>
+          <li><b>Automate</b> — invest in technology and one-time choices that lock in behavior.</li>
+        </ul>
+        <p class="inversion"><b>Inversion — Make It Difficult:</b> increase friction; use commitment devices to restrict future choices.</p>
+      </div>
+      <div class="law">
+        <h3>4th Law · Make It Satisfying</h3>
+        <ul>
+          <li>Use <b>reinforcement</b> — give yourself an immediate reward on completion.</li>
+          <li>Make "doing nothing" enjoyable when avoiding a bad habit.</li>
+          <li>Use a <b>habit tracker</b> — keep the streak alive and "don't break the chain."</li>
+          <li><b>Never miss twice</b> — when you forget, get back on track immediately.</li>
+        </ul>
+        <p class="inversion"><b>Inversion — Make It Unsatisfying:</b> get an accountability partner; sign a <b>habit contract</b> so breaking the habit is public and painful.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Questions & Answers</h2>
+    <details><summary>How long does it take to build a habit?</summary><p>The honest answer: forever — because a habit stops being a habit once you stop doing it. What matters isn't time but <b>frequency</b>: habits form based on the number of repetitions, not the number of days. Stop asking "how long" and just put in your reps.</p></details>
+    <details><summary>What should I do when I miss a day?</summary><p>Follow the rule: <b>never miss twice</b>. Missing once is an accident; missing twice is the start of a new (bad) habit. The first mistake is never the one that ruins you — it's the spiral of repeated mistakes that follows.</p></details>
+    <details><summary>Where do I start if I want to change?</summary><p>Start with <b>identity, not outcomes</b>. Instead of "I want to run a marathon" (outcome), aim for "I am a runner" (identity). Every action you take is a vote for the type of person you wish to become. Small habits win because each one proves your new identity to yourself.</p></details>
+    <details><summary>How do I break a bad habit?</summary><p>Invert the four laws: make it <b>invisible</b> (remove the cue), <b>unattractive</b> (reframe the benefits of avoiding it), <b>difficult</b> (increase friction, use commitment devices), and <b>unsatisfying</b> (accountability partner + habit contract).</p></details>
+    <details><summary>Why do small habits matter so much?</summary><p>Habits are the compound interest of self-improvement. Getting <b>1% better every day</b> makes you ~37× better after one year. Success is the product of daily habits, not once-in-a-lifetime transformations.</p></details>
+    <details><summary>What if a habit feels boring or I lose motivation?</summary><p>Everyone faces the same challenge: the <b>plateau of latent potential</b>. Habits often appear to make no difference until you cross a critical threshold. The work is never wasted — it's being stored. Professionals stick to the schedule; amateurs let life get in the way.</p></details>
+  </div>
+
+  <div class="card soft">
+    <h3>Sources</h3>
+    <p>Based on <i>Atomic Habits</i> by James Clear and its official companion resources: The Habit Loop, Habits Cheat Sheet, The Habits Scorecard, Implementation Intentions, Habit Stack, Habit Tracker, Habit Contract, and Q&A. See <a href="https://jamesclear.com/atomic-habits" target="_blank" rel="noopener">jamesclear.com/atomic-habits</a> and the <a href="https://jamesclear.com/atomic-habits/endnotes" target="_blank" rel="noopener">endnotes</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>⚛️ Atomic Habits Dashboard · your data stays in your browser (localStorage) · inspired by James Clear</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

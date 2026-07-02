@@ -12,8 +12,57 @@ const defaultState = {
   contract: { promise: "", penalty: "", partner: "", name: "", date: "" }
 };
 
+/* Pre-loaded daily routine — seeds any section the user hasn't filled yet */
+const ROUTINE_SCORECARD = [
+  "Wake up at 6:00 AM",
+  "Drink water",
+  "Go to toilet, wash hands & face",
+  "Cook breakfast (7:00–7:30 AM)",
+  "Brush teeth",
+  "Take a bath",
+  "Call my mother",
+  "Read before office (8:45 AM)",
+  "Go to office & start work (weekdays)",
+  "Lunch break & rest (1:00–2:00 PM)",
+  "Work until 6:00 PM (weekdays)",
+  "Return home & rest (till ~7:30 PM)",
+  "Go to the park — play / walk (sometimes)",
+  "Cook dinner",
+  "Stop using phone at 9:00 PM",
+  "Read at night",
+  "Sleep at 10:30 PM"
+];
+const ROUTINE_STACKS = [
+  { after: "wake up at 6:00 AM", will: "drink a glass of water" },
+  { after: "brush my teeth and take a bath", will: "call my mother" },
+  { after: "stop using my phone at 9:00 PM", will: "read until bedtime" }
+];
+const ROUTINE_INTENTIONS = [
+  { behavior: "read", time: "8:45 AM", location: "home, before leaving for office" },
+  { behavior: "stop using my phone", time: "9:00 PM", location: "home" },
+  { behavior: "go to sleep", time: "10:30 PM", location: "my bed" }
+];
+
 let state = loadState();
+seedRoutine();
 let calMonth = new Date().getFullYear() * 12 + new Date().getMonth(); // months since year 0
+
+function seedRoutine() {
+  let changed = false;
+  if (!state.scorecard.length) {
+    state.scorecard = ROUTINE_SCORECARD.map(text => ({ id: uid(), text, score: null }));
+    changed = true;
+  }
+  if (!state.stacks.length) {
+    state.stacks = ROUTINE_STACKS.map(s => ({ id: uid(), ...s }));
+    changed = true;
+  }
+  if (!state.intentions.length) {
+    state.intentions = ROUTINE_INTENTIONS.map(it => ({ id: uid(), ...it }));
+    changed = true;
+  }
+  if (changed) save();
+}
 
 function loadState() {
   try {

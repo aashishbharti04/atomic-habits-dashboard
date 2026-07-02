@@ -2,9 +2,10 @@
 "use strict";
 
 const STORE_KEY = "atomicHabitsData";
+const THEME_KEY = "atomicHabitsTheme";
 
 const defaultState = {
-  habits: [],        // {id, name}
+  habits: [],        // {id, name, freq: "daily"|"weekdays"|"weekends"}
   checks: {},        // {habitId: {"YYYY-MM-DD": true}}
   scorecard: [],     // {id, text, score: "+"|"-"|"="|null}
   stacks: [],        // {id, after, will}
@@ -45,8 +46,19 @@ const ROUTINE_INTENTIONS = [
 
 let state = loadState();
 seedRoutine();
-let calMonth = new Date().getFullYear() * 12 + new Date().getMonth(); // months since year 0
+let calMonth = new Date().getFullYear() * 12 + new Date().getMonth();
 
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return structuredClone(defaultState);
+    const s = Object.assign(structuredClone(defaultState), JSON.parse(raw));
+    s.habits.forEach(h => { if (!h.freq) h.freq = "daily"; });
+    return s;
+  } catch {
+    return structuredClone(defaultState);
+  }
+}
 function seedRoutine() {
   let changed = false;
   if (!state.scorecard.length) {
@@ -63,34 +75,73 @@ function seedRoutine() {
   }
   if (changed) save();
 }
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return structuredClone(defaultState);
-    return Object.assign(structuredClone(defaultState), JSON.parse(raw));
-  } catch {
-    return structuredClone(defaultState);
-  }
-}
 function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function todayKey() { return dateKey(new Date()); }
 function dateKey(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 
-/* ==================== tabs ==================== */
-document.querySelectorAll(".tab").forEach(btn => {
+/* ==================== theme ==================== */
+const savedTheme = localStorage.getItem(THEME_KEY);
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem(THEME_KEY, next);
+});
+
+/* ==================== navigation ==================== */
+const PAGE_META = {
+  today:      ["Today", () => new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })],
+  scorecard:  ["Habits Scorecard", () => "Rate every behavior in your day: + good · = neutral · – bad"],
+  calendar:   ["Habit Tracker", () => "Don't break the chain"],
+  stacks:     ["Habit Stacking", () => "After [current habit], I will [new habit]"],
+  intentions: ["Implementation Intentions", () => "I will [behavior] at [time] in [location]"],
+  contract:   ["Habit Contract", () => "Make breaking your habit public and painful"],
+  guide:      ["Guide", () => "The habit loop, the four laws, and answers to common questions"]
+};
+const QUOTES = [
+  "“You do not rise to the level of your goals. You fall to the level of your systems.”",
+  "“Every action you take is a vote for the type of person you wish to become.”",
+  "“Habits are the compound interest of self-improvement.”",
+  "“Success is the product of daily habits — not once-in-a-lifetime transformations.”",
+  "“The most effective form of motivation is progress.”"
+];
+document.querySelectorAll(".nav-item").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+    const [title, sub] = PAGE_META[btn.dataset.tab];
+    document.getElementById("pageTitle").textContent = title;
+    document.getElementById("pageSub").textContent = sub();
   });
 });
+document.getElementById("pageSub").textContent = PAGE_META.today[1]();
+document.getElementById("pageQuote").textContent = QUOTES[new Date().getDate() % QUOTES.length];
 
-/* ==================== streaks & stats ==================== */
+/* ==================== toasts ==================== */
+function toast(msg) {
+  const zone = document.getElementById("toastZone");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  zone.appendChild(el);
+  setTimeout(() => { el.classList.add("leaving"); setTimeout(() => el.remove(), 350); }, 2200);
+}
+
+/* ==================== schedule, checks & streaks ==================== */
+function isScheduled(h, d) {
+  const day = d.getDay();
+  if (h.freq === "weekdays") return day >= 1 && day <= 5;
+  if (h.freq === "weekends") return day === 0 || day === 6;
+  return true;
+}
 function isChecked(habitId, key) {
   return !!(state.checks[habitId] && state.checks[habitId][key]);
 }
@@ -102,48 +153,32 @@ function toggleCheck(habitId, key) {
   renderToday();
   renderTracker();
 }
-function currentStreak(habitId) {
+function currentStreak(h) {
   let streak = 0;
   const d = new Date();
-  // today may still be unchecked without breaking the streak
-  if (!isChecked(habitId, dateKey(d))) d.setDate(d.getDate() - 1);
-  while (isChecked(habitId, dateKey(d))) {
+  // today doesn't break the streak while still unchecked
+  if (isScheduled(h, d) && !isChecked(h.id, dateKey(d))) d.setDate(d.getDate() - 1);
+  for (let guard = 0; guard < 3700; guard++) {
+    if (!isScheduled(h, d)) { d.setDate(d.getDate() - 1); continue; }
+    if (!isChecked(h.id, dateKey(d))) break;
     streak++;
     d.setDate(d.getDate() - 1);
   }
   return streak;
 }
-function bestStreak(habitId) {
-  const days = Object.keys(state.checks[habitId] || {}).sort();
-  let best = 0, run = 0, prev = null;
-  for (const k of days) {
-    const cur = new Date(k + "T00:00:00");
-    if (prev && (cur - prev) === 86400000) run++;
-    else run = 1;
-    if (run > best) best = run;
-    prev = cur;
+function bestStreak(h) {
+  const keys = Object.keys(state.checks[h.id] || {});
+  if (!keys.length) return 0;
+  const start = new Date(keys.sort()[0] + "T00:00:00");
+  const end = new Date();
+  const tk = todayKey();
+  let best = 0, run = 0;
+  for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    if (!isScheduled(h, d)) continue;
+    if (isChecked(h.id, dateKey(d))) { run++; if (run > best) best = run; }
+    else if (dateKey(d) !== tk) run = 0;
   }
   return best;
-}
-
-function renderStats() {
-  const total = state.habits.length;
-  const doneToday = state.habits.filter(h => isChecked(h.id, todayKey())).length;
-  const best = state.habits.reduce((m, h) => Math.max(m, bestStreak(h.id)), 0);
-  // completion % over the last 30 days
-  let possible = 0, done = 0;
-  const d = new Date();
-  for (let i = 0; i < 30; i++) {
-    const k = dateKey(d);
-    for (const h of state.habits) { possible++; if (isChecked(h.id, k)) done++; }
-    d.setDate(d.getDate() - 1);
-  }
-  const pct = possible ? Math.round((done / possible) * 100) : 0;
-  document.getElementById("statsRow").innerHTML = `
-    <div class="stat"><div class="num">${doneToday}/${total}</div><div class="lbl">done today</div></div>
-    <div class="stat"><div class="num">${best}🔥</div><div class="lbl">best streak (days)</div></div>
-    <div class="stat"><div class="num">${pct}%</div><div class="lbl">last 30 days completion</div></div>
-    <div class="stat"><div class="num">${total}</div><div class="lbl">habits tracked</div></div>`;
 }
 
 /* ==================== today ==================== */
@@ -157,12 +192,89 @@ const TIPS = [
   "You do not rise to the level of your goals; you fall to the level of your systems.",
   "Environment beats motivation — design your space so the good choice is the easy choice."
 ];
+const FREQ_LABEL = { daily: "every day", weekdays: "weekdays", weekends: "weekends" };
+const CHECK_SVG = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+const TRASH_SVG = '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+function renderStats() {
+  const now = new Date();
+  const key = todayKey();
+  const scheduledToday = state.habits.filter(h => isScheduled(h, now));
+  const doneToday = scheduledToday.filter(h => isChecked(h.id, key)).length;
+  const best = state.habits.reduce((m, h) => Math.max(m, bestStreak(h)), 0);
+
+  let possible = 0, done = 0;
+  const d = new Date();
+  for (let i = 0; i < 30; i++) {
+    const k = dateKey(d);
+    for (const h of state.habits) {
+      if (!isScheduled(h, d)) continue;
+      possible++;
+      if (isChecked(h.id, k)) done++;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  const pct30 = possible ? Math.round((done / possible) * 100) : 0;
+
+  document.getElementById("statsRow").innerHTML = `
+    <div class="stat"><div class="num">${doneToday}<span class="accent">/${scheduledToday.length}</span></div><div class="lbl">habits done today</div></div>
+    <div class="stat"><div class="num">${best} <span class="accent">🔥</span></div><div class="lbl">best streak (days)</div></div>
+    <div class="stat"><div class="num">${pct30}<span class="accent">%</span></div><div class="lbl">30-day completion</div></div>
+    <div class="stat"><div class="num">${state.habits.length}</div><div class="lbl">habits tracked</div></div>`;
+
+  // progress ring
+  const pct = scheduledToday.length ? doneToday / scheduledToday.length : 0;
+  const C = 2 * Math.PI * 52;
+  const ring = document.getElementById("ringFg");
+  ring.style.strokeDasharray = C;
+  ring.style.strokeDashoffset = C * (1 - pct);
+  document.getElementById("ringPct").textContent = Math.round(pct * 100) + "%";
+  document.getElementById("ringCaption").textContent =
+    !state.habits.length ? "No habits yet — add one below" :
+    !scheduledToday.length ? "Rest day — nothing scheduled today" :
+    doneToday === scheduledToday.length ? "All done — cast every vote today 🎉" :
+    `${scheduledToday.length - doneToday} habit${scheduledToday.length - doneToday > 1 ? "s" : ""} left today`;
+}
+
+function renderChart() {
+  const wrap = document.getElementById("chart14");
+  const days = [];
+  const d = new Date();
+  d.setDate(d.getDate() - 13);
+  for (let i = 0; i < 14; i++) {
+    const k = dateKey(d);
+    const scheduled = state.habits.filter(h => isScheduled(h, d));
+    const done = scheduled.filter(h => isChecked(h.id, k)).length;
+    days.push({
+      pct: scheduled.length ? done / scheduled.length : 0,
+      label: d.toLocaleDateString(undefined, { weekday: "narrow" }),
+      dateNum: d.getDate(),
+      isToday: k === todayKey()
+    });
+    d.setDate(d.getDate() + 1);
+  }
+  const W = 560, H = 130, pad = 4, gap = 6;
+  const bw = (W - pad * 2 - gap * 13) / 14;
+  const maxH = 92;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="14 day completion chart">`;
+  days.forEach((day, i) => {
+    const x = pad + i * (bw + gap);
+    const h = Math.max(4, day.pct * maxH);
+    const y = 8 + (maxH - h);
+    const cls = day.pct === 0 ? "bar zero" : day.isToday ? "bar today-bar" : "bar";
+    svg += `<rect class="${cls}" x="${x}" y="${y}" width="${bw}" height="${h}" rx="3"><title>${Math.round(day.pct * 100)}%</title></rect>`;
+    svg += `<text x="${x + bw / 2}" y="${H - 18}" text-anchor="middle">${day.label}</text>`;
+    svg += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${day.dateNum}</text>`;
+  });
+  svg += "</svg>";
+  wrap.innerHTML = svg;
+}
 
 function renderToday() {
   const list = document.getElementById("todayList");
   const t = new Date();
   document.getElementById("todayTitle").textContent =
-    "Today · " + t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("dailyTip").textContent = TIPS[(t.getDate() + t.getMonth()) % TIPS.length];
 
   list.innerHTML = "";
@@ -170,24 +282,33 @@ function renderToday() {
   const key = todayKey();
   for (const h of state.habits) {
     const li = document.createElement("li");
+    const scheduled = isScheduled(h, t);
     const done = isChecked(h.id, key);
-    const streak = currentStreak(h.id);
+    const streak = currentStreak(h);
+    if (!scheduled) li.className = "off-today";
     li.innerHTML = `
-      <button class="habit-check ${done ? "checked" : ""}" aria-label="toggle">✓</button>
+      <button class="habit-check ${done ? "checked" : ""}" aria-label="toggle">${CHECK_SVG}</button>
       <span class="habit-name ${done ? "done" : ""}"></span>
-      <span class="streak-badge">${streak > 0 ? "🔥 " + streak + "d" : ""}</span>
-      <button class="del-btn" title="Delete habit">✕</button>`;
+      ${h.freq !== "daily" ? `<span class="chip">${FREQ_LABEL[h.freq]}</span>` : ""}
+      ${!scheduled ? '<span class="chip rest">rest day</span>' : ""}
+      ${streak > 0 ? `<span class="chip streak">🔥 ${streak} day${streak > 1 ? "s" : ""}</span>` : ""}
+      <button class="del-btn" title="Delete habit">${TRASH_SVG}</button>`;
     li.querySelector(".habit-name").textContent = h.name;
-    li.querySelector(".habit-check").addEventListener("click", () => { toggleCheck(h.id, key); renderStats(); });
+    li.querySelector(".habit-check").addEventListener("click", () => {
+      toggleCheck(h.id, key);
+      renderStats(); renderChart();
+    });
     li.querySelector(".del-btn").addEventListener("click", () => {
       if (!confirm(`Delete habit "${h.name}" and its history?`)) return;
       state.habits = state.habits.filter(x => x.id !== h.id);
       delete state.checks[h.id];
-      save(); renderToday(); renderStats(); renderTracker();
+      save(); renderToday(); renderStats(); renderChart(); renderTracker();
+      toast("Habit deleted");
     });
     list.appendChild(li);
   }
   renderStats();
+  renderChart();
 }
 
 document.getElementById("addHabitBtn").addEventListener("click", addHabit);
@@ -196,9 +317,11 @@ function addHabit() {
   const inp = document.getElementById("newHabitInput");
   const name = inp.value.trim();
   if (!name) return;
-  state.habits.push({ id: uid(), name });
+  const freq = document.getElementById("newHabitFreq").value;
+  state.habits.push({ id: uid(), name, freq });
   inp.value = "";
   save(); renderToday(); renderTracker();
+  toast(`Habit added — ${FREQ_LABEL[freq]}`);
 }
 
 /* ==================== scorecard ==================== */
@@ -216,7 +339,7 @@ function renderScorecard() {
         <button class="score-btn ${item.score === "=" ? "sel-neu" : ""}" data-s="=">=</button>
         <button class="score-btn ${item.score === "-" ? "sel-neg" : ""}" data-s="-">–</button>
       </span>
-      <button class="del-btn" title="Remove">✕</button>`;
+      <button class="del-btn" title="Remove">${TRASH_SVG}</button>`;
     li.querySelector(".score-text").textContent = item.text;
     li.querySelectorAll(".score-btn").forEach(b => b.addEventListener("click", () => {
       item.score = item.score === b.dataset.s ? null : b.dataset.s;
@@ -232,7 +355,7 @@ function renderScorecard() {
   const neg = state.scorecard.filter(x => x.score === "-").length;
   const neu = state.scorecard.filter(x => x.score === "=").length;
   document.getElementById("scoreSummary").innerHTML = state.scorecard.length
-    ? `Summary: <b class="pos">${pos} good</b> · <b class="neg">${neg} bad</b> · <b class="neu">${neu} neutral</b> — pick ONE bad habit to make invisible, and ONE good habit to make obvious.`
+    ? `<span class="chip good">+ ${pos} good</span><span class="chip neutral">= ${neu} neutral</span><span class="chip bad">– ${neg} bad</span>`
     : "";
 }
 document.getElementById("addScoreBtn").addEventListener("click", addScore);
@@ -270,24 +393,29 @@ function renderTracker() {
 
   let rows = "";
   for (const h of state.habits) {
-    rows += `<tr><td class="habit-col" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</td>`;
+    rows += `<tr><td class="habit-col" title="${escapeHtml(h.name)} (${FREQ_LABEL[h.freq]})">${escapeHtml(h.name)}</td>`;
     for (let d = 1; d <= daysInMonth; d++) {
+      const cellDate = new Date(year, month, d);
       const key = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
       const done = isChecked(h.id, key);
-      const future = new Date(year, month, d) > now;
-      const cls = ["day-cell", done ? "done" : "", (isThisMonth && d === todayDate) ? "today-cell" : "", future ? "future" : ""].join(" ");
-      rows += `<td class="${cls}" data-h="${h.id}" data-k="${key}" ${future ? "" : 'tabindex="0"'}></td>`;
+      const off = !isScheduled(h, cellDate);
+      const future = cellDate > now && !(isThisMonth && d === todayDate);
+      const cls = ["day-cell",
+        done ? "done" : "",
+        off ? "off" : "",
+        (isThisMonth && d === todayDate) ? "today-cell" : "",
+        future ? "future" : ""].filter(Boolean).join(" ");
+      const clickable = !off && !future;
+      rows += `<td class="${cls}" ${clickable ? `data-h="${h.id}" data-k="${key}" tabindex="0"` : ""}></td>`;
     }
-    rows += `<td class="streak-cell">${currentStreak(h.id)}d</td></tr>`;
+    rows += `<td class="streak-cell">${currentStreak(h)}d</td></tr>`;
   }
   table.innerHTML = head + rows;
 
-  table.querySelectorAll("td.day-cell:not(.future)").forEach(td => {
+  table.querySelectorAll("td.day-cell[data-h]").forEach(td => {
     td.addEventListener("click", () => toggleCheck(td.dataset.h, td.dataset.k));
+    td.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCheck(td.dataset.h, td.dataset.k); } });
   });
-}
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 document.getElementById("prevMonth").addEventListener("click", () => { calMonth--; renderTracker(); });
 document.getElementById("nextMonth").addEventListener("click", () => { calMonth++; renderTracker(); });
@@ -299,7 +427,7 @@ function renderStacks() {
   document.getElementById("stackEmpty").hidden = state.stacks.length > 0;
   for (const s of state.stacks) {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="formula-text">After I <b></b>, I will <b></b>.</span><button class="del-btn">✕</button>`;
+    li.innerHTML = `<span class="formula-text">After I <b></b>, I will <b></b>.</span><button class="del-btn">${TRASH_SVG}</button>`;
     const bolds = li.querySelectorAll("b");
     bolds[0].textContent = s.after;
     bolds[1].textContent = s.will;
@@ -318,6 +446,7 @@ document.getElementById("addStackBtn").addEventListener("click", () => {
   document.getElementById("stackAfter").value = "";
   document.getElementById("stackWill").value = "";
   save(); renderStacks();
+  toast("Habit stack added");
 });
 
 /* ==================== intentions ==================== */
@@ -327,7 +456,7 @@ function renderIntentions() {
   document.getElementById("intEmpty").hidden = state.intentions.length > 0;
   for (const it of state.intentions) {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="formula-text">I will <b></b> at <b></b> in <b></b>.</span><button class="del-btn">✕</button>`;
+    li.innerHTML = `<span class="formula-text">I will <b></b> at <b></b> in <b></b>.</span><button class="del-btn">${TRASH_SVG}</button>`;
     const bolds = li.querySelectorAll("b");
     bolds[0].textContent = it.behavior;
     bolds[1].textContent = it.time;
@@ -347,6 +476,7 @@ document.getElementById("addIntBtn").addEventListener("click", () => {
   state.intentions.push({ id: uid(), behavior, time, location });
   ["intBehavior", "intTime", "intLocation"].forEach(id => document.getElementById(id).value = "");
   save(); renderIntentions();
+  toast("Intention committed");
 });
 
 /* ==================== contract ==================== */
@@ -367,9 +497,7 @@ document.getElementById("saveContractBtn").addEventListener("click", () => {
     date: document.getElementById("cDate").value
   };
   save();
-  const note = document.getElementById("contractSaved");
-  note.hidden = false;
-  setTimeout(() => note.hidden = true, 2500);
+  toast("Contract saved");
 });
 document.getElementById("printContractBtn").addEventListener("click", () => window.print());
 
@@ -381,6 +509,7 @@ document.getElementById("exportBtn").addEventListener("click", () => {
   a.download = "atomic-habits-data.json";
   a.click();
   URL.revokeObjectURL(a.href);
+  toast("Data exported");
 });
 document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
 document.getElementById("importFile").addEventListener("change", e => {
@@ -391,9 +520,10 @@ document.getElementById("importFile").addEventListener("change", e => {
     try {
       const data = JSON.parse(reader.result);
       state = Object.assign(structuredClone(defaultState), data);
+      state.habits.forEach(h => { if (!h.freq) h.freq = "daily"; });
       save();
       renderAll();
-      alert("Data imported ✓");
+      toast("Data imported");
     } catch {
       alert("Invalid JSON file.");
     }

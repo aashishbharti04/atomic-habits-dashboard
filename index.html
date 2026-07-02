@@ -1,63 +1,138 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Atomic Habits Dashboard</title>
-<meta name="description" content="A personal dashboard based on James Clear's Atomic Habits — habit scorecard, tracker calendar, habit stacks, implementation intentions and habit contract.">
+<title>Atomic Habits — Dashboard</title>
+<meta name="description" content="A professional habit dashboard based on James Clear's Atomic Habits — habit scorecard, tracker calendar, habit stacks, implementation intentions and habit contract.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛️</text></svg>">
 </head>
 <body>
 
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-icon">⚛️</span>
-    <div>
-      <h1>Atomic Habits</h1>
-      <p class="tagline">Tiny changes, remarkable results</p>
+<div class="app">
+
+<!-- ==================== SIDEBAR ==================== -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><ellipse cx="12" cy="12" rx="10" ry="4.2"/><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(120 12 12)"/></svg>
+    </div>
+    <div class="logo-text">
+      <strong>Atomic Habits</strong>
+      <span>1% better every day</span>
     </div>
   </div>
-  <div class="quote-chip" id="quoteChip">"You do not rise to the level of your goals. You fall to the level of your systems."</div>
-  <div class="topbar-actions">
-    <button class="btn ghost" id="exportBtn" title="Download your data as JSON">⬇ Export</button>
-    <button class="btn ghost" id="importBtn" title="Restore data from JSON">⬆ Import</button>
+
+  <nav class="nav">
+    <button class="nav-item active" data-tab="today">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Today</span>
+    </button>
+    <button class="nav-item" data-tab="scorecard">
+      <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+      <span>Scorecard</span>
+    </button>
+    <button class="nav-item" data-tab="calendar">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Calendar</span>
+    </button>
+    <button class="nav-item" data-tab="stacks">
+      <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <span>Stacks</span>
+    </button>
+    <button class="nav-item" data-tab="intentions">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span>Intentions</span>
+    </button>
+    <button class="nav-item" data-tab="contract">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+      <span>Contract</span>
+    </button>
+    <button class="nav-item" data-tab="guide">
+      <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      <span>Guide</span>
+    </button>
+  </nav>
+
+  <div class="sidebar-foot">
+    <button class="icon-btn" id="themeToggle" title="Toggle light / dark theme">
+      <svg class="ic-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="icon-btn" id="exportBtn" title="Export data (JSON)">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+    <button class="icon-btn" id="importBtn" title="Import data (JSON)">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </button>
     <input type="file" id="importFile" accept=".json" hidden>
   </div>
+</aside>
+
+<!-- ==================== CONTENT ==================== -->
+<div class="content">
+
+<header class="page-head">
+  <div>
+    <h1 id="pageTitle">Today</h1>
+    <p class="page-sub" id="pageSub"></p>
+  </div>
+  <div class="page-quote" id="pageQuote"></div>
 </header>
-
-<nav class="tabs" id="tabs">
-  <button class="tab active" data-tab="today">🏠 Today</button>
-  <button class="tab" data-tab="scorecard">📋 Scorecard</button>
-  <button class="tab" data-tab="calendar">📅 Calendar</button>
-  <button class="tab" data-tab="stacks">🔗 Stacks</button>
-  <button class="tab" data-tab="intentions">🎯 Intentions</button>
-  <button class="tab" data-tab="contract">🤝 Contract</button>
-  <button class="tab" data-tab="guide">📖 Guide</button>
-</nav>
-
-<main>
 
 <!-- ==================== TODAY ==================== -->
 <section class="panel active" id="panel-today">
-  <div class="stats-row" id="statsRow"></div>
+  <div class="hero-grid">
+    <div class="card ring-card">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120" class="ring">
+          <circle class="ring-bg" cx="60" cy="60" r="52"/>
+          <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"/>
+        </svg>
+        <div class="ring-label"><span id="ringPct">0%</span><small>today</small></div>
+      </div>
+      <p class="ring-caption" id="ringCaption">No habits scheduled yet</p>
+    </div>
+    <div class="stats-grid" id="statsRow"></div>
+  </div>
 
   <div class="card">
     <div class="card-head">
-      <h2 id="todayTitle">Today's Habits</h2>
-      <span class="hint">Check off each habit you complete. Never miss twice.</span>
+      <div><h2>Today's Habits</h2><p class="hint" id="todayTitle"></p></div>
+      <span class="hint">Never miss twice</span>
     </div>
     <div class="add-row">
-      <input type="text" id="newHabitInput" placeholder="Add a habit… e.g. Read 10 pages" maxlength="80">
-      <button class="btn primary" id="addHabitBtn">+ Add Habit</button>
+      <input type="text" id="newHabitInput" placeholder="Add a new habit… e.g. Do 10 push-ups" maxlength="80">
+      <select id="newHabitFreq" title="How often?">
+        <option value="daily">Every day</option>
+        <option value="weekdays">Weekdays</option>
+        <option value="weekends">Weekends</option>
+      </select>
+      <button class="btn primary" id="addHabitBtn">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Habit
+      </button>
     </div>
     <ul class="habit-list" id="todayList"></ul>
     <p class="empty-msg" id="todayEmpty" hidden>No habits yet. Add your first habit above — start with something that takes <b>two minutes or less</b>.</p>
   </div>
 
-  <div class="card soft">
-    <h3>💡 Rule of the day</h3>
-    <p id="dailyTip"></p>
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Last 14 Days</h2><p class="hint">Daily completion of scheduled habits</p></div>
+    </div>
+    <div class="chart" id="chart14"></div>
+  </div>
+
+  <div class="card tip-card">
+    <div class="tip-icon">
+      <svg viewBox="0 0 24 24"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+    </div>
+    <div><h3>Rule of the day</h3><p id="dailyTip"></p></div>
   </div>
 </section>
 
@@ -65,19 +140,21 @@
 <section class="panel" id="panel-scorecard">
   <div class="card">
     <div class="card-head">
-      <h2>The Habits Scorecard</h2>
-      <span class="hint">Awareness comes before change.</span>
+      <div><h2>The Habits Scorecard</h2><p class="hint">Awareness comes before change</p></div>
+      <div class="score-summary-chips" id="scoreSummary"></div>
     </div>
-    <p class="explain">List the things you do every day in order — from waking up to going to bed. Then score each one:
-      <b class="pos">+</b> if it's a good habit, <b class="neg">–</b> if it's a bad habit, <b class="neu">=</b> if it's neutral.
-      Judge by whether the behavior benefits <i>the person you want to become</i>. Just observe — no need to change anything yet.</p>
+    <p class="explain">Walk through your day in order and score every behavior:
+      <b class="pos">+</b> good habit · <b class="neg">–</b> bad habit · <b class="neu">=</b> neutral.
+      Judge by whether it benefits <i>the person you want to become</i>. Just observe — no need to change anything yet.</p>
     <div class="add-row">
       <input type="text" id="newScoreInput" placeholder="e.g. Wake up · Check phone · Drink coffee…" maxlength="80">
-      <button class="btn primary" id="addScoreBtn">+ Add Behavior</button>
+      <button class="btn primary" id="addScoreBtn">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add
+      </button>
     </div>
     <ul class="score-list" id="scoreList"></ul>
     <p class="empty-msg" id="scoreEmpty" hidden>Nothing listed yet. Walk through your day in your head and write down each behavior in order.</p>
-    <div class="score-summary" id="scoreSummary"></div>
   </div>
 </section>
 
@@ -85,21 +162,21 @@
 <section class="panel" id="panel-calendar">
   <div class="card">
     <div class="card-head">
-      <h2>Habit Tracker</h2>
+      <div><h2>Habit Tracker</h2><p class="hint">Don't break the chain — click a cell to mark it done</p></div>
       <div class="month-nav">
-        <button class="btn ghost" id="prevMonth">‹</button>
+        <button class="icon-btn" id="prevMonth"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
         <span id="monthLabel"></span>
-        <button class="btn ghost" id="nextMonth">›</button>
+        <button class="icon-btn" id="nextMonth"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
       </div>
     </div>
-    <p class="explain">"Don't break the chain." Click a cell to mark a habit done on that day. The most effective form of motivation is <b>seeing your own progress</b>.</p>
     <div class="tracker-wrap">
       <table class="tracker" id="trackerTable"></table>
     </div>
-    <p class="empty-msg" id="trackerEmpty" hidden>Add habits on the <b>Today</b> tab to start tracking them here.</p>
+    <p class="empty-msg" id="trackerEmpty" hidden>Add habits on the <b>Today</b> page to start tracking them here.</p>
     <div class="legend">
       <span><span class="cell-demo done"></span> done</span>
       <span><span class="cell-demo"></span> not done</span>
+      <span><span class="cell-demo off"></span> rest day</span>
       <span><span class="cell-demo today-demo"></span> today</span>
     </div>
   </div>
@@ -109,18 +186,16 @@
 <section class="panel" id="panel-stacks">
   <div class="card">
     <div class="card-head">
-      <h2>Habit Stacking</h2>
-      <span class="hint">1st Law · Make It Obvious</span>
+      <div><h2>Habit Stacking</h2><p class="hint">1st Law · Make It Obvious</p></div>
     </div>
-    <p class="explain">Pair a new habit with a current one. The formula:
-      <b>"After [CURRENT HABIT], I will [NEW HABIT]."</b>
-      Your current habits are already built into your brain — use them as cues.</p>
+    <p class="explain">Pair a new habit with a current one — your existing routine is the cue:
+      <b>"After [CURRENT HABIT], I will [NEW HABIT]."</b></p>
     <div class="builder">
       <span class="builder-word">After I</span>
       <input type="text" id="stackAfter" placeholder="pour my morning coffee" maxlength="80">
       <span class="builder-word">, I will</span>
       <input type="text" id="stackWill" placeholder="meditate for one minute" maxlength="80">
-      <button class="btn primary" id="addStackBtn">+ Stack It</button>
+      <button class="btn primary" id="addStackBtn">Stack It</button>
     </div>
     <ul class="formula-list" id="stackList"></ul>
     <p class="empty-msg" id="stackEmpty" hidden>No stacks yet. Anchor a tiny new habit to something you already do every day.</p>
@@ -131,10 +206,9 @@
 <section class="panel" id="panel-intentions">
   <div class="card">
     <div class="card-head">
-      <h2>Implementation Intentions</h2>
-      <span class="hint">1st Law · Make It Obvious</span>
+      <div><h2>Implementation Intentions</h2><p class="hint">1st Law · Make It Obvious</p></div>
     </div>
-    <p class="explain">People who make a specific plan for <i>when</i> and <i>where</i> they will perform a habit are far more likely to follow through. The formula:
+    <p class="explain">People who plan <i>when</i> and <i>where</i> they will act are far more likely to follow through:
       <b>"I will [BEHAVIOR] at [TIME] in [LOCATION]."</b></p>
     <div class="builder">
       <span class="builder-word">I will</span>
@@ -143,7 +217,7 @@
       <input type="text" id="intTime" placeholder="7:00 AM" maxlength="40">
       <span class="builder-word">in</span>
       <input type="text" id="intLocation" placeholder="my local gym" maxlength="60">
-      <button class="btn primary" id="addIntBtn">+ Commit</button>
+      <button class="btn primary" id="addIntBtn">Commit</button>
     </div>
     <ul class="formula-list" id="intList"></ul>
     <p class="empty-msg" id="intEmpty" hidden>No intentions yet. Vague plans fail — give every habit a time and a place.</p>
@@ -154,10 +228,9 @@
 <section class="panel" id="panel-contract">
   <div class="card">
     <div class="card-head">
-      <h2>Habit Contract</h2>
-      <span class="hint">4th Law inversion · Make It Unsatisfying</span>
+      <div><h2>Habit Contract</h2><p class="hint">4th Law inversion · Make It Unsatisfying</p></div>
     </div>
-    <p class="explain">Make the costs of breaking your habit public and painful. Write a contract, set a consequence, and have an accountability partner sign it with you.</p>
+    <p class="explain">Make the cost of breaking your habit public and painful. Write the contract, set a consequence, and have an accountability partner sign it with you.</p>
     <div class="contract-form">
       <label>My commitment<textarea id="cPromise" rows="2" placeholder="I will track my habits every evening at 9 PM for the next 30 days."></textarea></label>
       <label>If I fail, the consequence is<textarea id="cPenalty" rows="2" placeholder="I pay ₹500 to my accountability partner / do 50 push-ups."></textarea></label>
@@ -167,10 +240,9 @@
         <label>Date<input type="date" id="cDate"></label>
       </div>
       <div class="contract-actions">
-        <button class="btn primary" id="saveContractBtn">💾 Save Contract</button>
-        <button class="btn ghost" id="printContractBtn">🖨 Print</button>
+        <button class="btn primary" id="saveContractBtn">Save Contract</button>
+        <button class="btn" id="printContractBtn">Print</button>
       </div>
-      <p class="saved-note" id="contractSaved" hidden>✓ Contract saved</p>
     </div>
   </div>
 </section>
@@ -195,7 +267,7 @@
     <h2>Habits Cheat Sheet — The Four Laws</h2>
     <div class="laws-grid">
       <div class="law">
-        <h3>1st Law · Make It Obvious</h3>
+        <h3><span class="law-badge">1</span> Make It Obvious</h3>
         <ul>
           <li>Fill out the <b>Habits Scorecard</b> to become aware of your habits.</li>
           <li>Use <b>implementation intentions</b>: "I will [behavior] at [time] in [location]."</li>
@@ -205,7 +277,7 @@
         <p class="inversion"><b>Inversion — Make It Invisible:</b> reduce exposure; remove the cues of bad habits from your environment.</p>
       </div>
       <div class="law">
-        <h3>2nd Law · Make It Attractive</h3>
+        <h3><span class="law-badge">2</span> Make It Attractive</h3>
         <ul>
           <li>Use <b>temptation bundling</b> — pair an action you want with one you need.</li>
           <li><b>Join a culture</b> where your desired behavior is the normal behavior.</li>
@@ -214,7 +286,7 @@
         <p class="inversion"><b>Inversion — Make It Unattractive:</b> reframe your mindset; highlight the benefits of avoiding the bad habit.</p>
       </div>
       <div class="law">
-        <h3>3rd Law · Make It Easy</h3>
+        <h3><span class="law-badge">3</span> Make It Easy</h3>
         <ul>
           <li><b>Reduce friction</b> — decrease the steps between you and good habits.</li>
           <li><b>Prime the environment</b> — prepare it so future actions are easy.</li>
@@ -225,7 +297,7 @@
         <p class="inversion"><b>Inversion — Make It Difficult:</b> increase friction; use commitment devices to restrict future choices.</p>
       </div>
       <div class="law">
-        <h3>4th Law · Make It Satisfying</h3>
+        <h3><span class="law-badge">4</span> Make It Satisfying</h3>
         <ul>
           <li>Use <b>reinforcement</b> — give yourself an immediate reward on completion.</li>
           <li>Make "doing nothing" enjoyable when avoiding a bad habit.</li>
@@ -238,7 +310,7 @@
   </div>
 
   <div class="card">
-    <h2>Questions & Answers</h2>
+    <h2>Questions &amp; Answers</h2>
     <details><summary>How long does it take to build a habit?</summary><p>The honest answer: forever — because a habit stops being a habit once you stop doing it. What matters isn't time but <b>frequency</b>: habits form based on the number of repetitions, not the number of days. Stop asking "how long" and just put in your reps.</p></details>
     <details><summary>What should I do when I miss a day?</summary><p>Follow the rule: <b>never miss twice</b>. Missing once is an accident; missing twice is the start of a new (bad) habit. The first mistake is never the one that ruins you — it's the spiral of repeated mistakes that follows.</p></details>
     <details><summary>Where do I start if I want to change?</summary><p>Start with <b>identity, not outcomes</b>. Instead of "I want to run a marathon" (outcome), aim for "I am a runner" (identity). Every action you take is a vote for the type of person you wish to become. Small habits win because each one proves your new identity to yourself.</p></details>
@@ -247,17 +319,20 @@
     <details><summary>What if a habit feels boring or I lose motivation?</summary><p>Everyone faces the same challenge: the <b>plateau of latent potential</b>. Habits often appear to make no difference until you cross a critical threshold. The work is never wasted — it's being stored. Professionals stick to the schedule; amateurs let life get in the way.</p></details>
   </div>
 
-  <div class="card soft">
+  <div class="card">
     <h3>Sources</h3>
-    <p>Based on <i>Atomic Habits</i> by James Clear and its official companion resources: The Habit Loop, Habits Cheat Sheet, The Habits Scorecard, Implementation Intentions, Habit Stack, Habit Tracker, Habit Contract, and Q&A. See <a href="https://jamesclear.com/atomic-habits" target="_blank" rel="noopener">jamesclear.com/atomic-habits</a> and the <a href="https://jamesclear.com/atomic-habits/endnotes" target="_blank" rel="noopener">endnotes</a>.</p>
+    <p class="explain" style="margin:0">Based on <i>Atomic Habits</i> by James Clear and its official companion resources: The Habit Loop, Habits Cheat Sheet, The Habits Scorecard, Implementation Intentions, Habit Stack, Habit Tracker, Habit Contract, and Q&amp;A. See <a href="https://jamesclear.com/atomic-habits" target="_blank" rel="noopener">jamesclear.com/atomic-habits</a> and the <a href="https://jamesclear.com/atomic-habits/endnotes" target="_blank" rel="noopener">endnotes</a>.</p>
   </div>
 </section>
 
-</main>
-
 <footer>
-  <p>⚛️ Atomic Habits Dashboard · your data stays in your browser (localStorage) · inspired by James Clear</p>
+  <p>Atomic Habits Dashboard · your data stays in your browser (localStorage) · inspired by James Clear</p>
 </footer>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<div class="toast-zone" id="toastZone"></div>
 
 <script src="app.js"></script>
 </body>

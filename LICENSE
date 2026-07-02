@@ -1,0 +1,30 @@
+Personal Use License
+
+Copyright (c) 2026 Khadush (aashishbharti04). All rights reserved.
+
+This software and its source code were created by Khadush for personal use.
+
+Permissions:
+- Khadush may use, modify, build, and install this software on any personal
+  device without restriction.
+- Others may view the source code for reference and learning.
+
+Restrictions:
+- No one other than the copyright holder may redistribute, sublicense, sell,
+  or publish this software or derivative works without prior written
+  permission from Khadush.
+- This software is provided "as is", without warranty of any kind, express or
+  implied. In no event shall the author be liable for any claim, damages, or
+  other liability arising from the use of this software.
+
+Attribution:
+- The habit-building concepts referenced by this application (the habit loop,
+  the four laws of behavior change, habit scorecard, habit stacking,
+  implementation intentions, habit tracker, and habit contract) are from the
+  book "Atomic Habits" by James Clear (jamesclear.com). This project is an
+  independent personal tool and is NOT affiliated with, endorsed by, or
+  sponsored by James Clear. The book's text is not reproduced here.
+- Open-source components (Next.js, React, Tailwind CSS, Capacitor, sharp, and
+  their dependencies) remain under their own licenses (MIT and similar); this
+  license applies only to the original code and content of this project.
+- The Inter typeface is used under the SIL Open Font License 1.1.

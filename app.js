@@ -126,6 +126,7 @@ document.getElementById("themeToggle").addEventListener("click", () => {
 const PAGE_META = {
   today:      ["Today", () => new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })],
   discover:   ["Discover", () => "Positive habits worth adopting — start with the two-minute version"],
+  insights:   ["Insights", () => "Your consistency, habit strength and achievements at a glance"],
   scorecard:  ["Habits Scorecard", () => "Rate every behavior in your day: + good · = neutral · – bad"],
   calendar:   ["Habit Tracker", () => "Don't break the chain"],
   stacks:     ["Habit Stacking", () => "After [current habit], I will [new habit]"],
@@ -174,13 +175,31 @@ function isScheduled(h, d) {
 function isChecked(habitId, key) {
   return !!(state.checks[habitId] && state.checks[habitId][key]);
 }
+const MILESTONES = [
+  { days: 7,   emoji: "🥉", label: "One Week",     sub: "7-day streak" },
+  { days: 21,  emoji: "🥈", label: "Three Weeks",  sub: "21-day streak" },
+  { days: 30,  emoji: "🥇", label: "One Month",    sub: "30-day streak" },
+  { days: 66,  emoji: "💎", label: "Habit Formed", sub: "66-day streak — the average time to automaticity" },
+  { days: 100, emoji: "🏆", label: "Centurion",    sub: "100-day streak" }
+];
+
 function toggleCheck(habitId, key) {
   if (!state.checks[habitId]) state.checks[habitId] = {};
-  if (state.checks[habitId][key]) delete state.checks[habitId][key];
-  else state.checks[habitId][key] = true;
+  const nowChecked = !state.checks[habitId][key];
+  if (nowChecked) state.checks[habitId][key] = true;
+  else delete state.checks[habitId][key];
   save();
+  if (nowChecked && key === todayKey()) {
+    const h = state.habits.find(x => x.id === habitId);
+    if (h) {
+      const s = currentStreak(h);
+      const m = MILESTONES.find(m => m.days === s);
+      if (m) toast(`${m.emoji} ${m.label} — ${s}-day streak on "${h.name}"!`);
+    }
+  }
   renderToday();
   renderTracker();
+  renderInsights();
 }
 function currentStreak(h) {
   let streak = 0;
@@ -224,6 +243,7 @@ const TIPS = [
 const FREQ_LABEL = { daily: "every day", weekdays: "weekdays", weekends: "weekends" };
 const CHECK_SVG = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
 const TRASH_SVG = '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+const PENCIL_SVG = '<svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>';
 
 function renderStats() {
   const now = new Date();
@@ -321,17 +341,47 @@ function renderToday() {
       ${h.freq !== "daily" ? `<span class="chip">${FREQ_LABEL[h.freq]}</span>` : ""}
       ${!scheduled ? '<span class="chip rest">rest day</span>' : ""}
       ${streak > 0 ? `<span class="chip streak">🔥 ${streak} day${streak > 1 ? "s" : ""}</span>` : ""}
+      <button class="edit-btn" title="Edit habit">${PENCIL_SVG}</button>
       <button class="del-btn" title="Delete habit">${TRASH_SVG}</button>`;
     li.querySelector(".habit-name").textContent = h.name;
     li.querySelector(".habit-check").addEventListener("click", () => {
       toggleCheck(h.id, key);
       renderStats(); renderChart();
     });
+    li.querySelector(".edit-btn").addEventListener("click", () => {
+      li.innerHTML = `
+        <div class="habit-edit-row">
+          <input type="text" maxlength="80">
+          <select>
+            <option value="daily">Every day</option>
+            <option value="weekdays">Weekdays</option>
+            <option value="weekends">Weekends</option>
+          </select>
+          <button class="btn primary save-edit">Save</button>
+          <button class="btn cancel-edit">Cancel</button>
+        </div>`;
+      const inp = li.querySelector("input");
+      const sel = li.querySelector("select");
+      inp.value = h.name;
+      sel.value = h.freq;
+      inp.focus();
+      const commit = () => {
+        const name = inp.value.trim();
+        if (!name) return;
+        h.name = name;
+        h.freq = sel.value;
+        save(); renderToday(); renderTracker(); renderInsights(); renderDiscover();
+        toast("Habit updated");
+      };
+      li.querySelector(".save-edit").addEventListener("click", commit);
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") commit(); });
+      li.querySelector(".cancel-edit").addEventListener("click", () => renderToday());
+    });
     li.querySelector(".del-btn").addEventListener("click", () => {
       if (!confirm(`Delete habit "${h.name}" and its history?`)) return;
       state.habits = state.habits.filter(x => x.id !== h.id);
       delete state.checks[h.id];
-      save(); renderToday(); renderStats(); renderChart(); renderTracker();
+      save(); renderToday(); renderStats(); renderChart(); renderTracker(); renderInsights(); renderDiscover();
       toast("Habit deleted");
     });
     list.appendChild(li);
@@ -351,6 +401,122 @@ function addHabit() {
   inp.value = "";
   save(); renderToday(); renderTracker();
   toast(`Habit added — ${FREQ_LABEL[freq]}`);
+}
+
+/* ==================== insights ==================== */
+function habitStrength(h) {
+  // Loop-style strength: exponentially weighted completion over the last 60 days.
+  // Recent days count more; one missed day dents it slightly instead of zeroing it.
+  let num = 0, den = 0;
+  const d = new Date();
+  for (let i = 0; i < 60; i++) {
+    if (isScheduled(h, d)) {
+      const w = Math.pow(0.94, i);
+      den += w;
+      if (isChecked(h.id, dateKey(d))) num += w;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return den ? Math.round((num / den) * 100) : 0;
+}
+
+function renderInsights() {
+  const WEEKS = 26;
+  const now = new Date();
+  const tk = todayKey();
+
+  /* --- heatmap: last 26 weeks, columns = weeks, rows = Sun..Sat --- */
+  const start = new Date();
+  start.setDate(start.getDate() - (WEEKS * 7 - 1) - start.getDay());
+  let cells = "";
+  const d = new Date(start);
+  while (d <= now) {
+    const k = dateKey(d);
+    const scheduled = state.habits.filter(h => isScheduled(h, d));
+    let cls;
+    if (!scheduled.length) cls = "hm-none";
+    else {
+      const pct = scheduled.filter(h => isChecked(h.id, k)).length / scheduled.length;
+      cls = pct === 0 ? "hm-l0" : pct < 0.34 ? "hm-l1" : pct < 0.67 ? "hm-l2" : pct < 1 ? "hm-l3" : "hm-l4";
+    }
+    const label = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    const doneCount = scheduled.filter(h => isChecked(h.id, k)).length;
+    cells += `<span class="hm-cell ${cls} ${k === tk ? "hm-today" : ""}" title="${label} — ${doneCount}/${scheduled.length} done"></span>`;
+    d.setDate(d.getDate() + 1);
+  }
+  document.getElementById("heatmap").innerHTML = cells;
+
+  /* --- summary cards --- */
+  let totalReps = 0;
+  for (const h of state.habits) totalReps += Object.keys(state.checks[h.id] || {}).length;
+  let perfectDays = 0;
+  const byWeekday = Array.from({ length: 7 }, () => ({ done: 0, poss: 0 }));
+  const wd = new Date();
+  for (let i = 0; i < 84; i++) {
+    const k = dateKey(wd);
+    const scheduled = state.habits.filter(h => isScheduled(h, wd));
+    if (scheduled.length) {
+      const done = scheduled.filter(h => isChecked(h.id, k)).length;
+      if (i < 30 && done === scheduled.length) perfectDays++;
+      byWeekday[wd.getDay()].done += done;
+      byWeekday[wd.getDay()].poss += scheduled.length;
+    }
+    wd.setDate(wd.getDate() - 1);
+  }
+  let bestDay = "—", bestRate = -1;
+  byWeekday.forEach((v, i) => {
+    if (v.poss >= 4) {
+      const rate = v.done / v.poss;
+      if (rate > bestRate) { bestRate = rate; bestDay = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][i]; }
+    }
+  });
+  const avgStrength = state.habits.length
+    ? Math.round(state.habits.reduce((s, h) => s + habitStrength(h), 0) / state.habits.length)
+    : 0;
+  document.getElementById("insightCards").innerHTML = `
+    <div class="stat"><div class="num">${totalReps}</div><div class="lbl">total reps — every one a vote</div></div>
+    <div class="stat"><div class="num">${perfectDays}<span class="accent">/30</span></div><div class="lbl">perfect days, last 30</div></div>
+    <div class="stat"><div class="num">${avgStrength}<span class="accent">%</span></div><div class="lbl">average habit strength</div></div>
+    <div class="stat"><div class="num" style="font-size:1.15rem">${bestDay}</div><div class="lbl">your strongest day (12 weeks)</div></div>`;
+
+  /* --- per-habit stats table --- */
+  const table = document.getElementById("statsTable");
+  document.getElementById("statsEmpty").hidden = state.habits.length > 0;
+  if (!state.habits.length) { table.innerHTML = ""; }
+  else {
+    let rows = `<tr><th>Habit</th><th>Strength</th><th>Streak</th><th>Best</th><th>30-day</th><th>Total</th></tr>`;
+    for (const h of state.habits) {
+      const strength = habitStrength(h);
+      let poss = 0, done = 0;
+      const sd = new Date();
+      for (let i = 0; i < 30; i++) {
+        if (isScheduled(h, sd)) { poss++; if (isChecked(h.id, dateKey(sd))) done++; }
+        sd.setDate(sd.getDate() - 1);
+      }
+      rows += `<tr>
+        <td class="habit-cell" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}<br><span class="freq-cell">${FREQ_LABEL[h.freq]}</span></td>
+        <td><span class="strength-track"><span class="strength-fill" style="width:${strength}%"></span></span><span class="strength-num">${strength}%</span></td>
+        <td>🔥 ${currentStreak(h)}d</td>
+        <td>${bestStreak(h)}d</td>
+        <td>${poss ? Math.round((done / poss) * 100) : 0}%</td>
+        <td>${Object.keys(state.checks[h.id] || {}).length}✓</td>
+      </tr>`;
+    }
+    table.innerHTML = rows;
+  }
+
+  /* --- achievements --- */
+  const maxBest = state.habits.reduce((m, h) => Math.max(m, bestStreak(h)), 0);
+  const shelf = document.getElementById("badgeShelf");
+  shelf.innerHTML = MILESTONES.map(m => {
+    const earned = maxBest >= m.days;
+    return `<div class="badge ${earned ? "earned" : "locked"}">
+      <span class="badge-emoji">${m.emoji}</span>
+      <b>${m.label}</b>
+      <small>${m.sub}</small>
+      <small>${earned ? "✓ earned" : `${maxBest}/${m.days} days`}</small>
+    </div>`;
+  }).join("");
 }
 
 /* ==================== discover / suggestions ==================== */
@@ -654,8 +820,14 @@ function renderAll() {
   renderDiscover();
   renderScorecard();
   renderTracker();
+  renderInsights();
   renderStacks();
   renderIntentions();
   renderContract();
 }
 renderAll();
+
+/* ==================== PWA ==================== */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}

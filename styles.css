@@ -462,6 +462,99 @@ a { color: var(--primary-strong, var(--primary)); }
 
 footer { text-align: center; color: var(--text-2); font-size: .76rem; padding: 1.6rem 0 .4rem; }
 
+/* ================= insights ================= */
+.insight-cards { margin-bottom: 1.1rem; }
+.heatmap-wrap { overflow-x: auto; padding-bottom: .3rem; }
+.heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 13px);
+  grid-auto-columns: 13px;
+  gap: 3px;
+  width: max-content;
+}
+.hm-cell {
+  width: 13px; height: 13px;
+  border-radius: 3.5px;
+  background: var(--surface-2);
+}
+.hm-cell.hm-none { background: transparent; border: 1px dashed var(--border); }
+.hm-cell.hm-l0 { background: var(--surface-2); }
+.hm-cell.hm-l1 { background: color-mix(in srgb, var(--success) 30%, var(--surface-2)); }
+.hm-cell.hm-l2 { background: color-mix(in srgb, var(--success) 55%, var(--surface-2)); }
+.hm-cell.hm-l3 { background: color-mix(in srgb, var(--success) 78%, var(--surface-2)); }
+.hm-cell.hm-l4 { background: var(--success); }
+.hm-cell.hm-today { box-shadow: inset 0 0 0 2px var(--primary); }
+.hm-legend { justify-content: flex-end; gap: .35rem; }
+.hm-legend .hm-cell { display: inline-block; }
+
+.table-wrap { overflow-x: auto; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.stats-table th {
+  text-align: left; color: var(--text-2); font-weight: 600; font-size: .74rem;
+  text-transform: uppercase; letter-spacing: .04em;
+  padding: .5rem .7rem; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.stats-table td { padding: .65rem .7rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.stats-table tr:last-child td { border-bottom: none; }
+.stats-table .habit-cell { font-weight: 600; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.stats-table .freq-cell { color: var(--text-2); font-size: .78rem; }
+.strength-track {
+  display: inline-block; vertical-align: middle;
+  width: 90px; height: 7px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-right: .5rem;
+}
+.strength-fill {
+  display: block; height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+}
+.strength-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.badge-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: .8rem;
+}
+.badge {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: .3rem;
+  padding: 1rem .8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.badge .badge-emoji {
+  width: 52px; height: 52px;
+  display: grid; place-items: center;
+  font-size: 1.6rem;
+  border-radius: 50%;
+  background: var(--primary-soft);
+}
+.badge b { font-size: .85rem; }
+.badge small { color: var(--text-2); font-size: .72rem; line-height: 1.4; }
+.badge.locked { opacity: .38; filter: grayscale(1); }
+.badge.earned { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); }
+
+/* ================= habit edit mode ================= */
+.edit-btn {
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  background: none; border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all .15s;
+}
+.edit-btn:hover { color: var(--primary-strong, var(--primary)); background: var(--primary-soft); }
+.edit-btn svg { width: 14px; height: 14px; }
+.habit-edit-row { display: flex; gap: .5rem; flex: 1; flex-wrap: wrap; align-items: center; }
+.habit-edit-row input { flex: 1; min-width: 160px; }
+
 /* ================= discover / suggestions ================= */
 .filter-chips { display: flex; gap: .45rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .chip-btn {

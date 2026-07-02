@@ -43,6 +43,19 @@ const ROUTINE_INTENTIONS = [
   { behavior: "stop using my phone", time: "9:00 PM", location: "home" },
   { behavior: "go to sleep", time: "10:30 PM", location: "my bed" }
 ];
+/* Starter habits — the first two new habits to build, anchored to the routine */
+const STARTER_HABITS = [
+  { name: "Meditate for 5 minutes", freq: "daily" },
+  { name: "Plan tomorrow's top 3 tasks", freq: "weekdays" }
+];
+const STARTER_STACKS = [
+  { after: "drink my morning water", will: "meditate for 5 minutes" },
+  { after: "finish work at 6:00 PM", will: "write tomorrow's top 3 tasks" }
+];
+const STARTER_INTENTIONS = [
+  { behavior: "meditate for 5 minutes", time: "6:05 AM", location: "my room" },
+  { behavior: "plan tomorrow's top 3 tasks", time: "6:00 PM", location: "my office desk" }
+];
 
 let state = loadState();
 seedRoutine();
@@ -71,6 +84,21 @@ function seedRoutine() {
   }
   if (!state.intentions.length) {
     state.intentions = ROUTINE_INTENTIONS.map(it => ({ id: uid(), ...it }));
+    changed = true;
+  }
+  // starter habits: seed once while the tracker is empty, wire their stacks/intentions
+  if (!state.habits.length) {
+    state.habits = STARTER_HABITS.map(h => ({ id: uid(), ...h }));
+    for (const s of STARTER_STACKS) {
+      if (!state.stacks.some(x => x.will.toLowerCase() === s.will.toLowerCase())) {
+        state.stacks.push({ id: uid(), ...s });
+      }
+    }
+    for (const it of STARTER_INTENTIONS) {
+      if (!state.intentions.some(x => x.behavior.toLowerCase() === it.behavior.toLowerCase())) {
+        state.intentions.push({ id: uid(), ...it });
+      }
+    }
     changed = true;
   }
   if (changed) save();
